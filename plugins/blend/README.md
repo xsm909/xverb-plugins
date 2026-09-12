@@ -2,7 +2,7 @@
 
 Looks inside a `.blend`.
 
-**F3** draws the model: shaded, turnable, framed on itself. **Shift+F3** says
+**F3** draws the model: shaded, textured, turnable, framed on itself. **Shift+F3** says
 what is in the file instead — objects by kind, every mesh and how heavy it is,
 materials, images, collections, rigs, actions and scenes, and, where the
 geometry lives in another file, which file that is.
@@ -17,6 +17,7 @@ table of contents as well — never an error, never an empty canvas.
 | --- | --- |
 | `blendfile.py` | The container: the header, the chain of blocks, the DNA the file carries, and the map from an address to a block. No meaning attached. |
 | `catalog.py` | What the blocks mean: the counting behind the report, and finding a named run of mesh data in whichever of three stores holds it. |
+| `shading.py` | The node walk: which picture a material is actually painted with, and the picture itself. |
 | `geometry.py` | Placing, triangulating and shading meshes into world-space triangles. |
 | `main.py` | The contributions. |
 | `selftest.py` | Runs the reader over a folder of real files. |
@@ -97,20 +98,49 @@ storage shapes that have no reason to agree unless both are right; that every
 coordinate is finite and every normal is a unit vector; and that every index
 points at a vertex that exists.
 
-Measured over the user's own collection: **170 files, 170 read, 0 problems**,
-Blender 2.91 / 3.1 / 3.3–3.6 / 4.0–4.5 / 5.1.
+Measured over a real collection of **170 files, 0 problems**, Blender 2.91 /
+3.1 / 3.3–3.6 / 4.0–4.5 / 5.1. On the 3.12 runtime the app stages, 157 of them
+are read and the other 13 are the zstd-compressed ones below; given a Python
+that can decompress those, all 170 read.
+
+## Pictures
+
+**The colour is not in the colour fields.** `Material.r/g/b` is the default 0.80
+grey on very nearly every material in a real file, because what the surface
+looks like lives in a node tree. So the tree is walked: find the Principled
+BSDF, take the link into its *Base Color*, and follow it back — through a mix or
+a ramp if need be — to the image node feeding it. Where nothing is plugged in,
+the socket's own colour is read and converted out of linear light; only where
+there is no tree at all are the legacy fields used.
+
+Which link matters. A character here carries five pictures for one material, of
+which colour is one and specular, roughness, normal and metallic are the other
+four: painting a face with its roughness map is not a smaller version of being
+right.
+
+Three things follow from a picture being one drawing call:
+
+- **A mesh of two materials is sent as two meshes**, cut here rather than in the
+  host, so the host's list of meshes stays the only thing it knows about.
+- **A seam is not a shared vertex.** Two corners can sit on one vertex, face the
+  same way, and read opposite edges of the picture — that is what a seam is — so
+  where there are UVs they are part of what makes two corners the same corner.
+  Sharing them drags the whole texture across the model.
+- **A file need not carry its bitmap.** Either it is packed in, or it is a path
+  to follow: Blender writes `//` for "beside this file" and then the separators
+  of the machine that saved it, so the path is turned round and followed
+  downward only. Absolute paths from somebody else's drive are used for the
+  name at the end of them and nothing more, and a picture that is neither packed
+  nor beside the file is *counted and reported*, not quietly dropped.
+
+Measured over the corpus: 965 mesh parts come out painted, 161 of them from
+bitmaps packed into the `.blend` itself.
 
 ## What is not here
 
-Modifiers, textures, node-based shading, lighting, editing, and following a link
-into another `.blend` to fetch the geometry it holds — the library is named, not
-opened.
-
-Material colour is deliberately absent rather than wrong: `Material.r/g/b` is
-right there and is the default 0.80 grey on very nearly every material in real
-files, because the real colour lives in a node tree. Useful colour means walking
-`bNodeTree` to the Principled BSDF, and until that is written the host's own
-default is the honest answer.
+Modifiers, node-based shading beyond the base colour, lighting, editing, and
+following a link into another `.blend` to fetch the geometry it holds — the
+library is named, not opened.
 
 **zstd-compressed files cannot be read.** Blender offers zstd and it is the
 default where compression is asked for at all; 13 of the 170 files measured use

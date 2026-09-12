@@ -44,6 +44,7 @@ from array import array
 from typing import Dict, List, Optional, Tuple
 
 import catalog
+import shading
 from blendfile import Block, BlendFile
 
 #: A guard, not a target. The measured corpus tops out at 114 574 triangles and
@@ -289,22 +290,31 @@ def _ints_at(f: BlendFile, block: Optional[Block], stride: int, offset: int,
 
 
 class Shape:
-    """One mesh datablock, read: positions, faces, corners, smoothness.
+    """One mesh datablock, read: positions, faces, corners, smoothness, UVs.
 
     Read once even where several objects stand on it, because a file that
     scatters one rock forty times holds one rock.
     """
 
-    __slots__ = ("positions", "faces", "corners", "smooth", "vertices")
+    __slots__ = ("positions", "faces", "corners", "smooth", "vertices",
+                 "uvs", "slots")
 
     def __init__(self, positions: array, faces: List[Tuple[int, int]],
-                 corners: array, smooth: Optional[List[bool]]):
+                 corners: array, smooth: Optional[List[bool]],
+                 uvs: Optional[array] = None,
+                 slots: Optional[List[int]] = None):
         self.positions = positions
         #: `(first corner, how many)` a face, already bounds-checked.
         self.faces = faces
         self.corners = corners
         #: Per face, or None where the file says nothing and everything is flat.
         self.smooth = smooth
+        #: Two floats a *corner*, not a vertex — which is the whole point of a
+        #: UV map: the two corners either side of a seam sit on one vertex and
+        #: read opposite edges of the picture.
+        self.uvs = uvs
+        #: Which material slot each face uses, or None where there is one.
+        self.slots = slots
         self.vertices = len(positions) // 3
 
     @property
@@ -332,9 +342,12 @@ def read_shape(f: BlendFile, block: Block) -> Optional[Shape]:
     if not faces:
         return None
 
-    # The smooth flags are read against the file's own face numbering, so they
-    # are read before anything is thrown away and thinned alongside it.
+    # The smooth flags and the material a face uses are read against the file's
+    # own face numbering, so they are read before anything is thrown away and
+    # thinned alongside it.
     flags = _smooth(f, block, counts.storage, len(faces))
+    which = _slots(f, block, counts, len(faces))
+    uvs = _uvs(f, block, counts)
 
     # A corner index out of range is a file this reader has no business
     # guessing at, and one bad face is not a reason to lose the mesh: the face
@@ -342,6 +355,7 @@ def read_shape(f: BlendFile, block: Block) -> Optional[Shape]:
     limit = counts.vertices
     kept: List[Tuple[int, int]] = []
     smooth: List[bool] = []
+    slots: List[int] = []
     for index, (start, length) in enumerate(faces):
         if length < 3 or start < 0 or start + length > len(corners):
             continue
@@ -350,10 +364,68 @@ def read_shape(f: BlendFile, block: Block) -> Optional[Shape]:
         kept.append((start, length))
         if flags is not None:
             smooth.append(flags[index] if index < len(flags) else False)
+        if which is not None:
+            slots.append(which[index] if index < len(which) else 0)
     if not kept:
         return None
 
-    return Shape(positions, kept, corners, smooth if flags is not None else None)
+    return Shape(positions, kept, corners,
+                 smooth if flags is not None else None,
+                 uvs, slots if which is not None else None)
+
+
+def _uvs(f, block, counts) -> Optional[array]:
+    """Where each face corner reads the picture, turned the right way up.
+
+    Blender writes the second coordinate running up from the bottom and every
+    picture is drawn from the top, so it is turned over here — once, where the
+    file is read, rather than left for the host to wonder about.
+    """
+    found = catalog.attribute_by_type(f, block, "ldata", catalog.ATTR_FLOAT2)
+    if found is not None:
+        raw = _floats_at(f, found[0], 8, 0, counts.corners, wide=2)
+    else:
+        layer = catalog.layer_by_struct(f, block, "ldata", "MLoopUV", "vec2f")
+        if layer is None:
+            return None
+        # `MLoopUV` keeps a flag beside its two floats and `vec2f` does not, so
+        # the stride is the struct's own size rather than eight.
+        raw = _floats_at(f, layer[0], layer[2], 0, counts.corners, wide=2)
+    if raw is None or len(raw) < counts.corners * 2:
+        return None
+    for at in range(1, len(raw), 2):
+        raw[at] = 1.0 - raw[at]
+    return raw
+
+
+def _slots(f, block, counts, total: int) -> Optional[List[int]]:
+    """Which material slot each face uses, where more than one is in play.
+
+    A picture is one drawing call, so a mesh of two materials has to arrive as
+    two meshes. Cutting it here rather than in the host keeps the host's list
+    of meshes the only thing it has to know about.
+    """
+    if total <= 0:
+        return None
+    found = catalog.array_of(f, block, "pdata", "material_index")
+    if found is not None:
+        numbers = _ints_at(f, found[0], 4, 0, total)
+        if numbers is not None:
+            return list(numbers)
+
+    poly = f.sdna.struct("MPoly")
+    slot = poly.field("mat_nr") if poly else None
+    if poly is not None and slot is not None:
+        target = f.follow(block, "mpoly", "MPoly")
+        if target is not None:
+            raw = f.bytes_of(target)
+            order = "little" if f.order == "<" else "big"
+            if len(raw) >= (total - 1) * poly.size + slot.offset + 2:
+                return [int.from_bytes(
+                    raw[index * poly.size + slot.offset:
+                        index * poly.size + slot.offset + 2], order, signed=True)
+                    for index in range(total)]
+    return None
 
 
 def _positions(f, block, shape, counts) -> Optional[array]:
@@ -508,28 +580,37 @@ class Builder:
     A smooth face's corners share one vertex per source vertex, because that is
     what smooth means. A flat face's do not — its corners carry the face's own
     normal, and sharing them would smooth the very edge the file asked to keep.
+
+    **A seam is the third case and it is the one that bites.** Two corners of a
+    smooth mesh can sit on one vertex, face the same way, and read opposite
+    edges of the picture; that is what an unwrapping seam *is*. Sharing those
+    drags the whole texture across the model, so where there are UVs they are
+    part of what makes two corners the same corner.
     """
 
-    __slots__ = ("positions", "normals", "indices", "shared")
+    __slots__ = ("positions", "normals", "uvs", "indices", "shared")
 
     def __init__(self):
         self.positions: List[float] = []
         self.normals: List[float] = []
+        self.uvs: List[float] = []
         self.indices: List[int] = []
-        self.shared: Dict[int, int] = {}
+        self.shared: Dict[tuple, int] = {}
 
-    def shared_corner(self, source: int, point, normal) -> int:
-        found = self.shared.get(source)
+    def shared_corner(self, key: tuple, point, normal, uv) -> int:
+        found = self.shared.get(key)
         if found is not None:
             return found
-        at = self.add(point, normal)
-        self.shared[source] = at
+        at = self.add(point, normal, uv)
+        self.shared[key] = at
         return at
 
-    def add(self, point, normal) -> int:
+    def add(self, point, normal, uv) -> int:
         at = len(self.positions) // 3
         self.positions.extend(point)
         self.normals.extend(normal)
+        if uv is not None:
+            self.uvs.extend(uv)
         return at
 
     def triangle(self, a: int, b: int, c: int) -> None:
@@ -585,23 +666,32 @@ def build(shape: Shape, placement: List[float]) -> Builder:
                 normals[at + 1] += normal[1]
                 normals[at + 2] += normal[2]
 
-    builder = Builder()
+    uvs = shape.uvs
+    slots = shape.slots
+    builders: Dict[int, Builder] = {}
     for index, (start, length) in enumerate(faces):
         is_smooth = smooth is None or smooth[index]
+        slot = slots[index] if slots is not None else 0
+        builder = builders.get(slot)
+        if builder is None:
+            builder = builders[slot] = Builder()
         fan = []
         for step in range(length):
-            source = corners[start + step]
+            corner = start + step
+            source = corners[corner]
             at = source * 3
             point = (placed[at], placed[at + 1], placed[at + 2])
+            uv = (uvs[corner * 2], uvs[corner * 2 + 1]) if uvs is not None else None
             if is_smooth:
                 fan.append(builder.shared_corner(
-                    source, point,
-                    _normalise(normals[at], normals[at + 1], normals[at + 2])))
+                    (source, uv), point,
+                    _normalise(normals[at], normals[at + 1], normals[at + 2]),
+                    uv))
             else:
-                fan.append(builder.add(point, face_normals[index]))
+                fan.append(builder.add(point, face_normals[index], uv))
         for step in range(1, length - 1):
             builder.triangle(fan[0], fan[step], fan[step + 1])
-    return builder
+    return builders
 
 
 def meshes(f: BlendFile, max_triangles: int = MAX_TRIANGLES):
@@ -613,6 +703,7 @@ def meshes(f: BlendFile, max_triangles: int = MAX_TRIANGLES):
     """
     cache: Dict[int, List[float]] = {}
     shapes: Dict[int, Optional[Shape]] = {}
+    surfaces_of: Dict[int, list] = {}
     out: List[dict] = []
     total = 0
     dropped = 0
@@ -643,23 +734,33 @@ def meshes(f: BlendFile, max_triangles: int = MAX_TRIANGLES):
             dropped += 1
             continue
 
-        builder = build(shape, world_matrix(f, block, cache))
-        if not builder.indices:
-            continue
-        total += len(builder.indices) // 3
-        out.append({
-            "name": catalog.block_name(f, block),
-            # Step 1 ships no colour on purpose. `Material.r/g/b` is right
-            # there and is the default 0.80 grey on very nearly every material
-            # in the measured files, because the real colour lives in a node
-            # tree. Sending that grey would be promising a colour and
-            # delivering a lie; the host's own default is the honest answer
-            # until the node walk is written.
-            "color": "",
-            "positions": builder.positions,
-            "normals": builder.normals,
-            "indices": builder.indices,
-        })
+        name = catalog.block_name(f, block)
+        surfaces = surfaces_of.get(target.address)
+        if surfaces is None:
+            surfaces = surfaces_of[target.address] = [
+                shading.surface_of(f, slot)
+                for slot in shading.slots_of(f, target)]
+
+        builders = build(shape, world_matrix(f, block, cache))
+        for slot in sorted(builders):
+            builder = builders[slot]
+            if not builder.indices:
+                continue
+            surface = surfaces[slot] if 0 <= slot < len(surfaces) else None
+            total += len(builder.indices) // 3
+            out.append({
+                # Named for the object, and for the material too where the
+                # mesh was cut by one — otherwise two rows in the host's list
+                # would carry the same name and mean different halves.
+                "name": name if len(builders) < 2 or surface is None
+                        else "%s · %s" % (name, surface["name"] or slot),
+                "color": surface["color"] if surface else "",
+                "picture": surface["picture"] if surface else None,
+                "positions": builder.positions,
+                "normals": builder.normals,
+                "uvs": builder.uvs,
+                "indices": builder.indices,
+            })
 
     return out, {"triangles": total, "held": max(held, total),
                  "droppedMeshes": dropped, "linked": linked}

@@ -36,6 +36,8 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import base64  # noqa: E402
+import hashlib  # noqa: E402
+from urllib.parse import quote  # noqa: E402
 
 from xverb import Plugin, error, markdown  # noqa: E402
 
@@ -151,10 +153,123 @@ def model(url: str) -> dict:
         return markdown(report(facts, size, os.path.basename(url),
                                preface=said))
 
-    return mesh3d(parts, note)
+    images, missing, unreadable = _pictures(url, parts)
+    return mesh3d(parts, note, images, missing, unreadable)
 
 
-def mesh3d(parts: list, note: dict) -> dict:
+#: Pictures are sent whole, and a character with fifteen 2K maps packed into it
+#: would otherwise put tens of megabytes through a pipe meant for a preview.
+MAX_PICTURE_BYTES = 24 << 20
+
+#: What the host can actually decode, by the first bytes of the file. A picture
+#: it cannot read costs the pipe its whole size and the host an error, and the
+#: mesh falls back to its material colour either way — so it is not sent.
+_DECODABLE = (b"\x89PNG", b"\xff\xd8\xff", b"GIF8", b"BM", b"RIFF")
+
+
+def _readable(data: bytes) -> bool:
+    if data[:4] == b"RIFF":
+        return data[8:12] == b"WEBP"
+    return any(data.startswith(magic) for magic in _DECODABLE)
+
+
+def _rooted(name: str) -> bool:
+    """Whether a name is a place on somebody else's machine.
+
+    Real files put them there: a character here names its textures at
+    `F:\\BMS\\19_SWAT\\MASTERS\\RIG\\2K\\Textures\\Arm_color.jpg`. Such a name
+    says nothing about where the picture is now, so only the name at the end of
+    it is ever used.
+    """
+    return name.startswith("/") or (len(name) > 1 and name[1] == ":")
+
+
+def _places(url: str, picture: dict) -> list:
+    """Where to look for a picture the file does not carry, in order.
+
+    Blender writes `//` for "beside this file" and then the separators of the
+    machine that saved it, so a Windows path has to be turned round before it
+    means anything anywhere else. Relative and downward first, as written; then
+    the bare name beside the model and in a `textures` folder, which is how a
+    model with its maps unpacked is actually laid out.
+    """
+    folder = url.rsplit("/", 1)[0] if "/" in url else url
+    above = folder.rsplit("/", 1)[0] if "/" in folder else folder
+    wanted = (picture.get("beside") or "").replace("\\", "/")
+    name = picture.get("name") or wanted.rsplit("/", 1)[-1]
+
+    out = []
+    if wanted and not _rooted(wanted) and ".." not in wanted:
+        out.append(folder + "/" + quote(wanted.lstrip("./")))
+    if name:
+        for place in (folder, folder + "/textures", folder + "/Textures",
+                      above + "/textures"):
+            candidate = place + "/" + quote(name)
+            if candidate not in out:
+                out.append(candidate)
+    return out
+
+
+def _pictures(url: str, parts: list) -> tuple:
+    """Every bitmap the meshes want, read once, and each mesh told which.
+
+    Two meshes painted with one material share one picture; a file that packs
+    its own needs nothing read at all.
+
+    Also counts the pictures a file *names* and does not have. A model whose
+    maps live five folders up on a drive that is not here — which is what a
+    real one says — then draws in flat colour, and the view can say why instead
+    of leaving it to look like a fault in the reader.
+    """
+    images: list = []
+    known: dict = {}
+    missing: set = set()
+    unreadable: set = set()
+    spent = 0
+
+    for mesh in parts:
+        mesh["image"] = -1
+        picture = mesh.get("picture")
+        if not picture:
+            continue
+
+        data = picture.get("bytes")
+        name = picture.get("name") or picture.get("beside") or "?"
+        if data is None:
+            for attempt in _places(url, picture):
+                try:
+                    data = plugin.read_file(attempt,
+                                            max_bytes=MAX_PICTURE_BYTES - spent)
+                except Exception:  # noqa: BLE001 - a missing texture is not a crash
+                    data = None
+                if data:
+                    break
+            if not data:
+                missing.add(name)
+                continue
+
+        key = hashlib.sha1(data).hexdigest()
+        if key in known:
+            mesh["image"] = known[key]
+            continue
+        if spent + len(data) > MAX_PICTURE_BYTES or not _readable(data):
+            # Found, and no use: past the cap, or in a form the host has no
+            # decoder for. Which of the two it is matters to whoever is
+            # looking, so it is not lumped in with a picture that is simply
+            # not there.
+            unreadable.add(name)
+            continue
+        spent += len(data)
+        known[key] = len(images)
+        mesh["image"] = len(images)
+        images.append({"name": name.rsplit("/", 1)[-1],
+                       "data": base64.b64encode(data).decode("ascii")})
+
+    return images, len(missing), len(unreadable)
+
+
+def mesh3d(parts: list, note: dict, images: list, missing: int = 0,
+           unreadable: int = 0) -> dict:
     """The content the host draws.
 
     Numbers travel packed and base64'd rather than as JSON arrays: a mesh of
@@ -169,6 +284,11 @@ def mesh3d(parts: list, note: dict) -> dict:
     if note.get("linked"):
         said.append("%d object(s) keep their mesh in another file, which is "
                     "named in full under Shift+F3 and not opened" % note["linked"])
+    if missing:
+        said.append("%d picture(s) this file names are neither packed into it "
+                    "nor beside it" % missing)
+    if unreadable:
+        said.append("%d picture(s) in a form this cannot read" % unreadable)
     return {
         "kind": "mesh3d",
         "triangles": note["triangles"],
@@ -177,9 +297,18 @@ def mesh3d(parts: list, note: dict) -> dict:
         # reached the view has to be able to say so.
         "truncated": short,
         "detail": " · ".join(said),
+        "images": images,
         "meshes": [
             {
                 "name": part["name"],
+                "color": part.get("color") or "",
+                #: Which of `images` this mesh is painted with, or −1 for none.
+                "image": part.get("image", -1),
+                # Only where there is a picture to read them against: on a
+                # model with none they are eight bytes a vertex saying nothing.
+                "uvs": base64.b64encode(geometry.pack_floats(part["uvs"]))
+                       .decode("ascii")
+                       if part.get("image", -1) >= 0 and part.get("uvs") else "",
                 "positions": base64.b64encode(
                     geometry.pack_floats(part["positions"])).decode("ascii"),
                 "normals": base64.b64encode(

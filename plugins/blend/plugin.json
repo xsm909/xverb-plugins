@@ -1,8 +1,8 @@
 {
   "id": "org.xverb.blend",
   "name": "Blender",
-  "version": "0.1.0",
-  "description": "Looks inside a .blend and says what is in it: objects, meshes and how heavy they are, materials, rigs and actions — and, where the geometry lives in another file, which file that is.",
+  "version": "0.2.0",
+  "description": "Shows what is in a .blend: the model, shaded and textured and turnable, and a report of everything the file holds — objects, meshes and how heavy they are, materials, rigs and actions, and, where the geometry lives in another file, which file that is.",
   "category": "Viewers",
   "author": "xverb",
   "homepage": "https://github.com/xsm909/xverb-plugins",

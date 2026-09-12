@@ -92,6 +92,9 @@ def check(path: str) -> dict:
     answer["build"] = (time.perf_counter() - start) * 1000
     answer["built"] = sum(len(p["indices"]) // 3 for p in parts)
     answer["vertices"] = sum(len(p["positions"]) // 3 for p in parts)
+    answer["painted"] = sum(1 for p in parts if p.get("picture"))
+    answer["packed"] = sum(1 for p in parts
+                           if (p.get("picture") or {}).get("bytes"))
 
     # The check worth having. A mesh is counted from `totloop` and `totpoly`
     # and built from the corner and offset arrays, and on a 4.x file those are
@@ -130,6 +133,16 @@ def _check_part(part: dict, problems: list) -> None:
     if len(indices) % 3:
         problems.append("%s: %d indices is not whole triangles"
                         % (name, len(indices)))
+
+    # A UV that is short by one vertex paints the whole model a hand's width
+    # off, which looks like a bad unwrapping rather than a bad reader.
+    uvs = part.get("uvs") or []
+    if uvs:
+        if len(uvs) != count * 2:
+            problems.append("%s: %d uv floats against %d vertices"
+                            % (name, len(uvs), count))
+        elif not all(math.isfinite(value) for value in uvs):
+            problems.append("%s: a uv coordinate is not a finite number" % name)
 
     for value in positions:
         if not math.isfinite(value):
@@ -172,6 +185,8 @@ def main(argv) -> int:
         "file", "ver", "meshes", "tris", "verts", "parse", "build"))
     bad = 0
     skipped = 0
+    painted = 0
+    packed = 0
     parse_total = build_total = 0.0
     versions = {}
 
@@ -191,14 +206,17 @@ def main(argv) -> int:
                   % (os.path.basename(path)[:38], answer["skipped"]))
             continue
 
+        painted += answer["painted"]
+        packed += answer["packed"]
         parse_total += answer["parse"]
         build_total += answer["build"]
         versions[answer["version"]] = versions.get(answer["version"], 0) + 1
-        print("%-38s %-5s %7d %8d %8d %6.0f %6.0f%s" % (
+        print("%-38s %-5s %7d %8d %8d %6.0f %6.0f%s%s" % (
             os.path.basename(path)[:38], answer["version"], answer["meshes"],
             answer["built"], answer["vertices"], answer["parse"],
             answer["build"],
-            ("  %d linked" % answer["linked"]) if answer["linked"] else ""))
+            ("  %d linked" % answer["linked"]) if answer["linked"] else "",
+            ("  %d painted" % answer["painted"]) if answer["painted"] else ""))
         for problem in answer["problems"]:
             bad += 1
             print("    PROBLEM: %s" % problem)
@@ -206,6 +224,9 @@ def main(argv) -> int:
     read = len(files) - skipped
     print("\n%d file(s), %d read, %d not read, %d problem(s)."
           % (len(files), read, skipped, bad))
+    if painted:
+        print("%d mesh part(s) carry a picture, %d of them packed into the file."
+              % (painted, packed))
     if versions:
         print("Blender %s." % ", ".join(
             "%s x%d" % (v, n) for v, n in sorted(versions.items())))

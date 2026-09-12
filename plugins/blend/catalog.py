@@ -232,6 +232,108 @@ def _address_at(f: BlendFile, raw: bytes, at: int) -> int:
                           "little" if f.order == "<" else "big")
 
 
+#: `Attribute.data_type`, for the two that have to be found without a name.
+ATTR_FLOAT2 = 6
+ATTR_FLOAT3 = 7
+
+
+def attribute_by_type(f: BlendFile, block: Block, domain: str,
+                      data_type: int) -> Optional[Tuple[Block, int]]:
+    """The first attribute of a domain holding a given kind of value.
+
+    For the one thing that cannot be asked for by name: **a UV map is called
+    whatever its author called it.** `UVMap` is only the default — one file
+    here says `UVW` — so the map is found by being a pair of floats on the face
+    corners, and the ones Blender keeps for itself, whose names begin with a
+    dot, are passed over.
+    """
+    shape = f.sdna.struct("Attribute")
+    wanted_domain = DOMAINS.get(domain)
+    if shape is None or wanted_domain is None:
+        return None
+    total = f.value(block, "attribute_storage.dna_attributes_num", default=0) or 0
+    holder = f.follow(block, "attribute_storage.dna_attributes", "Attribute")
+    if total <= 0 or holder is None:
+        return None
+
+    name_field = shape.field("name")
+    domain_field = shape.field("domain")
+    type_field = shape.field("data_type")
+    stored_field = shape.field("storage_type")
+    data_field = shape.field("data")
+    if not all((name_field, domain_field, type_field, stored_field, data_field)):
+        return None
+
+    raw = f.bytes_of(holder)
+    order = "little" if f.order == "<" else "big"
+    limit = min(total, holder.count or total, len(raw) // shape.size)
+    for index in range(limit):
+        base = index * shape.size
+        if raw[base + domain_field.offset] != wanted_domain:
+            continue
+        at = base + type_field.offset
+        if int.from_bytes(raw[at:at + 2], order, signed=True) != data_type:
+            continue
+        if _string_at(f, raw, base + name_field.offset, holder.at).startswith("."):
+            continue
+        if raw[base + stored_field.offset] != STORED_ARRAY:
+            continue
+        found = f.at_address(_address_at(f, raw, base + data_field.offset),
+                             "AttributeArray", after=holder.at)
+        if found is None:
+            return None
+        inner = f.follow(found, "data")
+        if inner is None:
+            return None
+        return inner, (f.value(found, "size", default=0) or 0)
+    return None
+
+
+def layer_by_struct(f: BlendFile, block: Block, domain: str,
+                    *structs: str) -> Optional[Tuple[Block, int, int]]:
+    """The first `CustomData` layer whose data is written as one of these structs.
+
+    The same problem as above, one release earlier: a UV layer is
+    `MLoopUV` before 4.0 and a bare `vec2f` after, and its *name* is the
+    author's. What it is written as is not.
+
+    Returns the block, how many entries, and how wide one is — `MLoopUV`
+    carries a flag beside its two floats and `vec2f` does not.
+    """
+    shape = f.sdna.struct("CustomDataLayer")
+    if shape is None:
+        return None
+    total = f.value(block, domain + ".totlayer", default=0) or 0
+    holder = f.follow(block, domain + ".layers", "CustomDataLayer") or \
+        f.follow(block, domain + ".layers")
+    if total <= 0 or holder is None:
+        return None
+    name_field = shape.field("name")
+    data_field = shape.field("data")
+    if name_field is None or data_field is None:
+        return None
+
+    raw = f.bytes_of(holder)
+    wanted = set(structs)
+    for index in range(min(total, max(holder.count, 1) or total)):
+        base = index * shape.size
+        if base + shape.size > len(raw):
+            break
+        start = base + name_field.offset
+        name = raw[start:start + name_field.count].split(b"\0")[0]
+        if name.startswith(b"."):
+            continue
+        target = f.at_address(_address_at(f, raw, base + data_field.offset),
+                              after=holder.at)
+        if target is None:
+            continue
+        written = f.struct_of(target)
+        if written is None or written.name not in wanted:
+            continue
+        return target, target.count, written.size
+    return None
+
+
 def array_of(f: BlendFile, block: Block, domain: str,
              *names: str) -> Optional[Tuple[Block, int]]:
     """A named run of mesh data, by whichever of the two stores holds it.
