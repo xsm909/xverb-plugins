@@ -35,8 +35,8 @@
     "folder": "blend",
     "id": "org.xverb.blend",
     "name": "Blender",
-    "version": "0.1.0",
-    "description": "Looks inside a .blend and says what is in it: objects, meshes and how heavy they are, materials, rigs and actions \u2014 and, where the geometry lives in another file, which file that is.",
+    "version": "0.2.0",
+    "description": "Shows what is in a .blend: the model, shaded and textured and turnable, and a report of everything the file holds \u2014 objects, meshes and how heavy they are, materials, rigs and actions, and, where the geometry lives in another file, which file that is.",
     "runtime": "python",
     "apiVersion": 1,
     "platforms": [
@@ -47,7 +47,7 @@
     "pythonMin": "3.12",
     "category": "Viewers",
     "icon": "view",
-    "updated": "2026-09-12T23:26:36+02:00"
+    "updated": "2026-09-12T23:41:32+02:00"
   },
   {
     "folder": "compare",
