@@ -1,0 +1,39 @@
+{
+  "id": "org.xverb.blend",
+  "name": "Blender",
+  "version": "0.1.0",
+  "description": "Looks inside a .blend and says what is in it: objects, meshes and how heavy they are, materials, rigs and actions — and, where the geometry lives in another file, which file that is.",
+  "category": "Viewers",
+  "author": "xverb",
+  "homepage": "https://github.com/xsm909/xverb-plugins",
+  "apiVersion": 1,
+  "runtime": "python",
+  "entry": "main.py",
+  "pythonMin": "3.12",
+  "icon": "view",
+  "platforms": [
+    "windows",
+    "macos",
+    "linux"
+  ],
+  "viewers": [
+    {
+      "id": "blend.contents",
+      "title": "What is in the file",
+      "extensions": [
+        "blend"
+      ],
+      "priority": 10,
+      "produces": ""
+    },
+    {
+      "id": "blend.model",
+      "title": "Model",
+      "extensions": [
+        "blend"
+      ],
+      "priority": 20,
+      "produces": "model"
+    }
+  ]
+}
