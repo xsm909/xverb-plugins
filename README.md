@@ -25,7 +25,7 @@ A folder holding a `plugin.json`. Two runtimes:
 | | `declarative` | `python` |
 | --- | --- | --- |
 | What it is | JSON naming a built-in primitive | a real program, its own process |
-| Platforms | all, including iOS and Android | desktop only |
+| Platforms | wherever the app runs — there is nothing to execute | desktop only |
 | Can add a file system | no | yes |
 
 Pick the weakest one that does the job — a declarative extension cannot crash
