@@ -8,7 +8,11 @@ turn it, scroll to zoom, two fingers to move it, double-click to put it back.
 meshes and how heavy they are, skeleton, clips and how long they run, what it
 was written by, which way is up.
 
-Textures and animation are not here yet. It is being built in steps.
+A file with no mesh in it — a rig and its clips, which is what most animation
+files are — draws its skeleton instead, and plays the clips on it. Every
+`LimbNode` is a bone and rests where the file stands it, since there is no skin
+to say where it was bound; the matrices are baked as for a skinned mesh, so the
+host poses the bones by the same arithmetic.
 
 ## Files
 

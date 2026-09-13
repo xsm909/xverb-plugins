@@ -135,6 +135,16 @@ class Model:
             return gltfanim.clips(self.document, self.held, parts)
         return _skin(self.scene, parts, geometry._axis_fix(self.scene))["clips"]
 
+    def skeleton(self):
+        """The rig of a file with no mesh in it, or None.
+
+        FBX only, so far: an OBJ has no bones, and a glTF with no mesh in it is
+        not read for one yet.
+        """
+        if self.kind != "fbx":
+            return None
+        return animation.alone(self.scene, geometry._axis_fix(self.scene))
+
 
 def _load(url: str):
     """The file, parsed, or the content that explains why not."""
@@ -280,6 +290,10 @@ def _skin(scene, parts: list, fix: list) -> dict:
     anything.
     """
     for mesh in parts:
+        if mesh.get("limbs"):
+            # A skeleton with no mesh on it: nothing to weigh, and its bones
+            # are already its own. See `animation.alone`.
+            continue
         clusters = animation.clusters_of(scene, mesh["geometryId"])
         mesh["clusters"] = clusters
         if not clusters:
@@ -418,10 +432,18 @@ def model(url: str) -> dict:
     except Exception as failure:  # noqa: BLE001 - one odd file is not a crash
         return error("The geometry in this file could not be read: %s" % failure)
 
+    if not parts and not note.get("droppedMeshes"):
+        # Most animation files are exactly this: a rig and its clips, and no
+        # character on it. The skeleton is then what there is to look at, and
+        # it plays the clips the way a skinned model would.
+        bones = loaded.skeleton()
+        if bones is not None:
+            parts = [bones]
+
     if not parts:
         return error(
-            "This file carries no mesh to draw. Shift+F3 lists what it does "
-            "carry — a skeleton and its animation, most likely."
+            "This file carries nothing to draw. Shift+F3 lists what it does "
+            "carry."
         )
 
     images, missing, unreadable = _pictures(url, parts)

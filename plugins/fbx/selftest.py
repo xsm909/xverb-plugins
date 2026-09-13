@@ -360,6 +360,75 @@ def check_rigid() -> list:
     return problems
 
 
+def check_alone() -> list:
+    """A skeleton with no mesh on it is drawn, and plays.
+
+    Most animation files are a rig and its clips and nothing else, and until
+    2026-09-13 every one of them answered F3 with an error. Two bones, the
+    second standing ten up from the first and moved ten across by the clip: at
+    rest both are where the file stands them, and at the end of the clip the
+    second has moved and the first has not.
+    """
+    hips, spine, curve_node_id, curve_id, layer_id, stack_id = 1, 2, 3, 4, 5, 6
+
+    def standing(ident: int, name: str, y: float) -> fbxfile.Node:
+        return _object("Model", ident, name, "LimbNode", fbxfile.Node(
+            "Properties70", [], [fbxfile.Node(
+                "P", ["Lcl Translation", "", "", "", 0.0, y, 0.0], [])]))
+
+    document = fbxfile.Document(7400, fbxfile.Node("", [], [
+        fbxfile.Node("Objects", [], [
+            standing(hips, "Hips", 100.0),
+            standing(spine, "Spine", 10.0),
+            _object("AnimationCurveNode", curve_node_id, "T", ""),
+            _object("AnimationCurve", curve_id, "X", "",
+                    _field("KeyTime", [0, 46186158000]),
+                    _field("KeyValueFloat", [0.0, 10.0])),
+            _object("AnimationLayer", layer_id, "Base", ""),
+            _object("AnimationStack", stack_id, "Take 001", ""),
+        ]),
+        fbxfile.Node("Connections", [], [
+            fbxfile.Node("C", ["OO", hips, 0], []),
+            fbxfile.Node("C", ["OO", spine, hips], []),
+            fbxfile.Node("C", ["OO", layer_id, stack_id], []),
+            fbxfile.Node("C", ["OO", curve_node_id, layer_id], []),
+            fbxfile.Node("C", ["OP", curve_node_id, spine, "Lcl Translation"], []),
+            fbxfile.Node("C", ["OP", curve_id, curve_node_id, "d|X"], []),
+        ]),
+    ]), True)
+
+    scene = Scene(document)
+    part = animation.alone(scene, list(geometry.IDENTITY))
+    if part is None:
+        return ["two bones and no mesh gave no skeleton"]
+
+    problems = []
+    wanted = [0.0, 100.0, 0.0, 0.0, 110.0, 0.0]
+    if len(part["bones"]) != len(wanted) or any(
+            abs(got - want) > 1e-9 for got, want in zip(part["bones"], wanted)):
+        problems.append("the bones rest at %s, wanted %s" % (part["bones"], wanted))
+    if part["boneParents"] != [-1, 0]:
+        problems.append("the bones hang %s, wanted [-1, 0]" % part["boneParents"])
+
+    baked = animation.bake(scene, scene.objects[stack_id], [part],
+                           list(geometry.IDENTITY))
+    if baked is None or not baked["tracks"] or not baked["tracks"][0]:
+        problems.append("a skeleton with no mesh was given no track")
+        return problems
+
+    track = baked["tracks"][0]
+    frame_size = 2 * 16
+    for frame, moved in ((0, (0.0, 0.0)), (baked["frames"] - 1, (0.0, 10.0))):
+        for joint in range(2):
+            at = frame * frame_size + joint * 16
+            rest = part["bones"][joint * 3:joint * 3 + 3]
+            x, y, _z = geometry.transform_point(track[at:at + 16], *rest)
+            if abs(x - moved[joint]) > 1e-6 or abs(y - rest[1]) > 1e-6:
+                problems.append("frame %d: bone %d is at (%g, %g), wanted (%g, %g)"
+                                % (frame, joint, x, y, moved[joint], rest[1]))
+    return problems
+
+
 def check_curves() -> list:
     """Reading a curve from where the last read finished answers the same.
 
@@ -529,6 +598,9 @@ def main(folder: str) -> int:
         failures += 1
     for problem in check_rigid():
         print("BAD   %-46s %s" % ("(a mesh moved by its own node)", problem))
+        failures += 1
+    for problem in check_alone():
+        print("BAD   %-46s %s" % ("(a skeleton with no mesh)", problem))
         failures += 1
     for problem in check_laying():
         print("BAD   %-46s %s" % ("(how a picture is laid on)", problem))

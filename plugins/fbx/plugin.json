@@ -1,8 +1,8 @@
 {
   "id": "org.xverb.fbx",
   "name": "3D",
-  "version": "0.12.1",
-  "description": "Shows a 3D model: shaded, turnable, textured, playing its animation — and what the file holds. FBX, glTF/GLB and OBJ, one viewer for all of them.",
+  "version": "0.13.0",
+  "description": "Shows a 3D model: shaded, turnable, textured, playing its animation — or its skeleton playing it, where the file has no mesh — and what the file holds. FBX, glTF/GLB and OBJ, one viewer for all of them.",
   "category": "Viewers",
   "author": "xverb",
   "homepage": "https://github.com/xsm909/xverb-plugins",

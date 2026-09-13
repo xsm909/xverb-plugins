@@ -426,22 +426,64 @@ def skeleton(scene: Scene, clusters: List["Cluster"],
         # its translation is where the bone was when the mesh was bound.
         rest = multiply(cluster.link, fix)
         where.extend(geometry.transform_point(rest, 0.0, 0.0, 0.0))
-
-        parent = -1
-        seen = set()
-        walk = cluster.bone_id
-        while walk is not None and walk not in seen:
-            seen.add(walk)
-            above = scene.parents_of(walk, "Model")
-            if not above:
-                break
-            walk = above[0].id
-            if walk in at:
-                parent = at[walk]
-                break
-        parents.append(parent)
+        parents.append(_parent_slot(scene, cluster.bone_id, at))
 
     return where, parents
+
+
+def _parent_slot(scene: Scene, bone_id: int, at: Dict[int, int]) -> int:
+    """The slot of the nearest node above ``bone_id`` that has one, or −1."""
+    seen = set()
+    walk = bone_id
+    while walk is not None and walk not in seen:
+        seen.add(walk)
+        above = scene.parents_of(walk, "Model")
+        if not above:
+            break
+        walk = above[0].id
+        if walk in at:
+            return at[walk]
+    return -1
+
+
+def alone(scene: Scene, fix: List[float]) -> Optional[dict]:
+    """A skeleton with no mesh on it, as a mesh with no triangles.
+
+    Most animation files are exactly this: a rig and its clips, the character
+    left behind in the file it was modelled in. There is no cluster to say
+    where a bone was bound, so it rests where the file has it standing; and
+    there is no skin to pick out the bones that count, so every `LimbNode` is
+    one.
+
+    Sent in the shape a skinned mesh's skeleton already travels in, so the host
+    poses it by the same arithmetic. A bone's matrix is its own rest undone and
+    then where it is now — see [bake] — which at rest is the identity.
+    """
+    limbs = scene.of_kind("Model", "LimbNode")
+    if not limbs:
+        return None
+    at = {limb.id: slot for slot, limb in enumerate(limbs)}
+    cache: Dict[int, List[float]] = {}
+    rests: List[Tuple[int, List[float]]] = []
+    where: List[float] = []
+    parents: List[int] = []
+    for limb in limbs:
+        rest = multiply(geometry._global_transform(scene, limb.id, cache), fix)
+        rests.append((limb.id, rest))
+        where.extend(geometry.transform_point(rest, 0.0, 0.0, 0.0))
+        parents.append(_parent_slot(scene, limb.id, at))
+    return {
+        "name": "Skeleton",
+        "color": "",
+        "positions": [],
+        "normals": [],
+        "uvs": [],
+        "indices": [],
+        "limbs": rests,
+        "joints": len(limbs),
+        "bones": where,
+        "boneParents": parents,
+    }
 
 
 def moves(scene: Scene, model_id: Optional[int]) -> bool:
@@ -540,6 +582,15 @@ def bake(
     tracks: List[Optional[List[float]]] = []
     work = []
     for mesh in meshes:
+        if mesh.get("limbs"):
+            # A skeleton with nothing on it — see [alone]. There is no mesh
+            # placement to undo, only each bone's own rest.
+            limbs = mesh["limbs"]
+            matrices = []
+            tracks.append(matrices)
+            work.append((matrices, [(bone_id, invert(rest))
+                                    for bone_id, rest in limbs]))
+            continue
         clusters = mesh.get("clusters") or []
         before = invert(multiply(mesh["placement_no_fix"], fix))
         if clusters:
