@@ -25,7 +25,8 @@ Two of every ten working files hold no geometry at all — they are rigs, or the
 link their meshes out of another `.blend` — and that case is what decides
 whether the tool is useful or a liar. Such a file gets a full answer saying
 what it does hold and which file its geometry lives in, never an error and
-never the word "empty".
+never the word "empty". A rig is drawn as its bones first, because a skeleton
+is a thing to look at too.
 """
 
 from __future__ import annotations
@@ -37,6 +38,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import base64  # noqa: E402
 import hashlib  # noqa: E402
+import struct  # noqa: E402
 from urllib.parse import quote  # noqa: E402
 
 from xverb import Plugin, error, markdown  # noqa: E402
@@ -113,13 +115,29 @@ BASE_CAGE = ("the file as saved — modifiers are worked out when Blender opens 
              "it and are not in it, so this is the base cage")
 
 
+def rig_alone(f, rigs: list) -> str:
+    """What the model view says under a rig drawn with no mesh on it.
+
+    It stands as the file was saved, or at rest where the file keeps no pose;
+    either way nothing is played. A file whose actions are listed and not
+    played has to say so, or a still rig reads as a clip that failed to play.
+    """
+    actions = len(f.of_code(b"AC"))
+    if not actions:
+        return ""
+    how = "as it was saved" if any(rig.get("posed") for rig in rigs) else "at rest"
+    return ("the rig %s — its %d action(s) are named under Shift+F3 and not "
+            "played" % (how, actions))
+
+
 @plugin.viewer("blend.model", "Model", extensions=["blend"], priority=20,
                produces="model")
 def model(url: str) -> dict:
     """The picture, where there is one.
 
-    **Where there is not, this answers with the table of contents rather than
-    an error.** A rig, or a file whose meshes are linked out of another
+    **Where there is not, this draws the rig if there is one and answers with
+    the table of contents if not — never with an error.** A rig, or a file
+    whose meshes are linked out of another
     `.blend`, is an ordinary file and two in ten of a real collection are one.
     Since this is what F3 opens, an error here would be the first thing seen of
     a file that was read perfectly well.
@@ -132,6 +150,17 @@ def model(url: str) -> dict:
         parts, note = geometry.meshes(opened)
     except Exception as failure:  # noqa: BLE001 - one odd file is not a crash
         return error("The geometry in this file could not be read: %s" % failure)
+
+    if not parts and not note["droppedMeshes"]:
+        # A rig and its actions with no mesh on them is what an animation file
+        # is, and a skeleton is a thing to look at: it is drawn on its own
+        # rather than the file being answered in words.
+        try:
+            rigs = geometry.skeletons(opened)
+        except Exception:  # noqa: BLE001 - a rig that will not read leaves the words
+            rigs = []
+        if rigs:
+            return mesh3d(rigs, note, [], first=rig_alone(opened, rigs))
 
     if not parts:
         try:
@@ -269,15 +298,18 @@ def _pictures(url: str, parts: list) -> tuple:
 
 
 def mesh3d(parts: list, note: dict, images: list, missing: int = 0,
-           unreadable: int = 0) -> dict:
+           unreadable: int = 0, first: str = BASE_CAGE) -> dict:
     """The content the host draws.
 
     Numbers travel packed and base64'd rather than as JSON arrays: a mesh of
     ninety thousand triangles is over a million numbers, and written out as
     decimal digits that is megabytes of text to parse before anything appears.
+
+    `first` is what the view always says under it: the base cage under a model,
+    and under a rig with no mesh on it whatever it holds and does not play.
     """
     short = note["held"] > note["triangles"]
-    said = [BASE_CAGE]
+    said = [first] if first else []
     if short:
         said.append("%s of the file's %s triangles"
                     % (thousands(note["triangles"]), thousands(note["held"])))
@@ -309,6 +341,13 @@ def mesh3d(parts: list, note: dict, images: list, missing: int = 0,
                 "uvs": base64.b64encode(geometry.pack_floats(part["uvs"]))
                        .decode("ascii")
                        if part.get("image", -1) >= 0 and part.get("uvs") else "",
+                # Where each end of each bone is and which end it hangs from —
+                # on a rig drawn with no mesh, and empty on every mesh.
+                "bones": base64.b64encode(geometry.pack_floats(
+                    part.get("bones") or [])).decode("ascii"),
+                "boneParents": base64.b64encode(struct.pack(
+                    "<%dh" % len(part.get("boneParents") or []),
+                    *(part.get("boneParents") or []))).decode("ascii"),
                 "positions": base64.b64encode(
                     geometry.pack_floats(part["positions"])).decode("ascii"),
                 "normals": base64.b64encode(

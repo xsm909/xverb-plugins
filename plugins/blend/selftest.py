@@ -116,7 +116,32 @@ def check(path: str) -> dict:
 
     for part in parts:
         _check_part(part, answer["problems"])
+
+    # Every rig, not only the ones the model view will draw: a rig beside a
+    # mesh is read by the same code, and there are far more of those to be
+    # wrong on.
+    rigs = geometry.skeletons(opened)
+    answer["bones"] = sum(rig["boneCount"] for rig in rigs)
+    for rig in rigs:
+        _check_rig(rig, answer["problems"])
     return answer
+
+
+def _check_rig(rig: dict, problems: list) -> None:
+    """Every end of every bone somewhere real, hung from an end sent before it."""
+    name = rig["name"]
+    ends = rig["bones"]
+    parents = rig["boneParents"]
+    if len(ends) != len(parents) * 3:
+        problems.append("%s: %d bone floats against %d ends"
+                        % (name, len(ends), len(parents)))
+        return
+    if not all(math.isfinite(value) for value in ends):
+        problems.append("%s: a bone end is not at a finite place" % name)
+    for index, parent in enumerate(parents):
+        if not -1 <= parent < index:
+            problems.append("%s: end %d hangs from end %d" % (name, index, parent))
+            break
 
 
 def _check_part(part: dict, problems: list) -> None:
@@ -184,6 +209,7 @@ def main(argv) -> int:
     print("%-38s %-5s %7s %8s %8s %7s %7s" % (
         "file", "ver", "meshes", "tris", "verts", "parse", "build"))
     bad = 0
+    rigs_alone = 0
     skipped = 0
     painted = 0
     packed = 0
@@ -211,12 +237,15 @@ def main(argv) -> int:
         parse_total += answer["parse"]
         build_total += answer["build"]
         versions[answer["version"]] = versions.get(answer["version"], 0) + 1
-        print("%-38s %-5s %7d %8d %8d %6.0f %6.0f%s%s" % (
+        print("%-38s %-5s %7d %8d %8d %6.0f %6.0f%s%s%s" % (
             os.path.basename(path)[:38], answer["version"], answer["meshes"],
             answer["built"], answer["vertices"], answer["parse"],
             answer["build"],
             ("  %d linked" % answer["linked"]) if answer["linked"] else "",
-            ("  %d painted" % answer["painted"]) if answer["painted"] else ""))
+            ("  %d painted" % answer["painted"]) if answer["painted"] else "",
+            ("  %d bones" % answer["bones"]) if answer["bones"] else ""))
+        if answer["bones"] and not answer["built"]:
+            rigs_alone += 1
         for problem in answer["problems"]:
             bad += 1
             print("    PROBLEM: %s" % problem)
@@ -227,6 +256,9 @@ def main(argv) -> int:
     if painted:
         print("%d mesh part(s) carry a picture, %d of them packed into the file."
               % (painted, packed))
+    if rigs_alone:
+        print("%d file(s) hold a rig and nothing to draw, and are drawn as "
+              "their bones." % rigs_alone)
     if versions:
         print("Blender %s." % ", ".join(
             "%s x%d" % (v, n) for v, n in sorted(versions.items())))

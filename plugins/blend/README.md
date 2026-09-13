@@ -8,8 +8,9 @@ materials, images, collections, rigs, actions and scenes, and, where the
 geometry lives in another file, which file that is.
 
 The two are not a strict either/or, which is what makes putting the model first
-safe. About two files in ten hold nothing drawable, and on those F3 gives the
-table of contents as well — never an error, never an empty canvas.
+safe. About two files in ten hold no mesh. Where one holds a rig, F3 draws the
+rig; where it holds nothing drawable at all, F3 gives the table of contents as
+well — never an error, never an empty canvas.
 
 ## Files
 
@@ -61,8 +62,21 @@ two in ten of a real collection are one — a rig, or a file whose meshes are
 linked out of another `.blend`. Such a file never produces an error, an empty
 canvas or the word "empty". The table of contents is the answer and it says
 *why*: how many objects hold no data of their own, and the library files they
-name, written exactly as the `.blend` writes them. Asking for the model on such
-a file gives the same report rather than an error.
+name, written exactly as the `.blend` writes them.
+
+**A rig is drawn.** An animation file is very often exactly this — the rig and
+its actions here, the character linked in from somewhere else — and a skeleton
+is a thing to look at. Its bones are sent as their two ends, placed by the rig's
+object, a connected bone's head being its parent's tail and sent once.
+
+They stand **as the file was saved**, read off the pose on the object — which
+matters, because the armature itself is very often not in the file: the rig is
+an override of one linked in with the character, the armature is an `ID`
+placeholder, and its bones are in the library. The pose is the object's and the
+object is here. Where there is no pose, the armature's rest position is used.
+Where a bone is at a moment of an action is not read, and the line under the
+view says how many actions are named under Shift+F3 and not played. A file with
+no rig either gets the report.
 
 ## Traps paid for, in this reader
 
@@ -138,9 +152,9 @@ bitmaps packed into the `.blend` itself.
 
 ## What is not here
 
-Modifiers, node-based shading beyond the base colour, lighting, editing, and
-following a link into another `.blend` to fetch the geometry it holds — the
-library is named, not opened.
+Modifiers, node-based shading beyond the base colour, lighting, editing,
+playing an action, and following a link into another `.blend` to fetch the
+geometry it holds — the library is named, not opened.
 
 **zstd-compressed files cannot be read.** Blender offers zstd and it is the
 default where compression is asked for at all; 13 of the 170 files measured use

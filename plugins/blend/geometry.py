@@ -52,8 +52,13 @@ from blendfile import Block, BlendFile
 #: more, and a preview that takes a minute is not a preview.
 MAX_TRIANGLES = 400000
 
-#: `Object.type` for a mesh, and for the empties and rigs that are not one.
+#: `Object.type` for a mesh, and for a rig.
 OB_MESH = 1
+OB_ARMATURE = 25
+
+#: How many bone ends one rig may send. The host numbers a bone's parent in
+#: sixteen bits, and a rig past this is a crowd scene rather than a character.
+MOST_ENDS = 8000
 
 #: `Object.rotmode`. Zero is a quaternion, negative is axis-angle, and the six
 #: positive values are the orders the three euler angles are applied in.
@@ -764,6 +769,168 @@ def meshes(f: BlendFile, max_triangles: int = MAX_TRIANGLES):
 
     return out, {"triangles": total, "held": max(held, total),
                  "droppedMeshes": dropped, "linked": linked}
+
+
+def skeletons(f: BlendFile) -> List[dict]:
+    """Every rig in the file, as a mesh with no triangles and bones on it.
+
+    For the file with no mesh in it — a rig and its actions, which is what an
+    animation file is. Where a bone is at a moment of an action is step 3 of
+    the specification and is not read: the rig is drawn standing still, and
+    there are two places to read that from.
+
+    **The pose first.** Where each bone stood when the file was saved is on the
+    object, as `pose_head` and `pose_tail` of its pose channels, in the rig's
+    own space. **The bones themselves are often not in the file**: an animation
+    file overrides the rig of a character linked in from elsewhere, so the
+    armature is an `ID` placeholder and its bones are in the library — but the
+    pose belongs to the object, and the object is here. Where there is no pose,
+    or one that was never worked out, the armature's own `arm_head` and
+    `arm_tail` give the rest position.
+
+    **A Blender bone is a segment, not a point**, so it is sent as its two
+    ends: the tail hangs from the head, and the head from the parent's tail —
+    which draws a bone that is not connected to its parent with the line
+    Blender draws dashed. A connected bone's head *is* its parent's tail, and
+    is sent once.
+    """
+    cache: Dict[int, List[float]] = {}
+    out: List[dict] = []
+    for block in f.of_code(b"OB"):
+        if f.value(block, "type", default=-1) != OB_ARMATURE:
+            continue
+        segments = _posed(f, block)
+        posed = bool(segments)
+        if not posed:
+            segments = _resting(f, block)
+        if not segments:
+            continue
+        m = world_matrix(f, block, cache)
+
+        def place(x: float, y: float, z: float) -> Tuple[float, float, float]:
+            return to_y_up(m[0] * x + m[4] * y + m[8] * z + m[12],
+                           m[1] * x + m[5] * y + m[9] * z + m[13],
+                           m[2] * x + m[6] * y + m[10] * z + m[14])
+
+        ends, parents, bones = _joined(segments, place)
+        out.append({
+            "name": catalog.block_name(f, block),
+            "color": "",
+            "picture": None,
+            "positions": [],
+            "normals": [],
+            "uvs": [],
+            "indices": [],
+            "bones": ends,
+            "boneParents": parents,
+            "boneCount": bones,
+            "posed": posed,
+        })
+    return out
+
+
+def _posed(f: BlendFile, block: Block) -> List[tuple]:
+    """A rig's bones where the file was saved with them, off its pose."""
+    pose = f.follow(block, "pose", "bPose")
+    if pose is None:
+        return []
+    channels = shading.listbase(f, pose, "chanbase", "bPoseChannel",
+                                most=MOST_ENDS)
+    slot = {channel.at: index for index, channel in enumerate(channels)}
+    raw = []
+    for channel in channels:
+        head = f.numbers(channel, "pose_head", 3)
+        tail = f.numbers(channel, "pose_tail", 3)
+        if len(head) < 3 or len(tail) < 3:
+            return []
+        parent = f.follow(channel, "parent", "bPoseChannel")
+        raw.append((head, tail,
+                    slot.get(parent.at, -1) if parent is not None else -1))
+    # A pose nobody ever worked out is all zeros, and would draw the whole rig
+    # as one dot at its origin. The rest position is the better answer then.
+    if not any(value for head, tail, _ in raw for value in head + tail):
+        return []
+    return _parents_first(raw)
+
+
+def _resting(f: BlendFile, block: Block) -> List[tuple]:
+    """A rig's bones at rest, off the armature — where the armature is here."""
+    rig = f.follow(block, "data", "bArmature")
+    if rig is None:
+        return []
+    out: List[tuple] = []
+    # Walked with a stack rather than by recursion: a tail or a chain of spine
+    # bones is as deep as its author made it.
+    waiting = [(bone, -1) for bone in
+               reversed(shading.listbase(f, rig, "bonebase", "Bone"))]
+    seen = set()
+    while waiting and len(out) < MOST_ENDS:
+        bone, above = waiting.pop()
+        if bone.at in seen:
+            continue
+        seen.add(bone.at)
+        head = f.numbers(bone, "arm_head", 3)
+        tail = f.numbers(bone, "arm_tail", 3)
+        if len(head) < 3 or len(tail) < 3:
+            continue
+        here = len(out)
+        out.append((head, tail, above))
+        for child in reversed(shading.listbase(f, bone, "childbase", "Bone")):
+            waiting.append((child, here))
+    return out
+
+
+def _parents_first(raw: List[tuple]) -> List[tuple]:
+    """Segments put in an order where each comes after the one it hangs from.
+
+    A pose is a flat list of channels with a pointer to the parent on each, and
+    nothing promises the parent is listed first. A cycle, which Blender does
+    not write, is dropped rather than followed.
+    """
+    children: Dict[int, List[int]] = {}
+    roots: List[int] = []
+    for index, (_head, _tail, parent) in enumerate(raw):
+        if 0 <= parent < len(raw) and parent != index:
+            children.setdefault(parent, []).append(index)
+        else:
+            roots.append(index)
+    out: List[tuple] = []
+    placed: Dict[int, int] = {}
+    waiting = list(reversed(roots))
+    while waiting:
+        index = waiting.pop()
+        if index in placed:
+            continue
+        head, tail, parent = raw[index]
+        placed[index] = len(out)
+        out.append((head, tail, placed.get(parent, -1)))
+        waiting.extend(reversed(children.get(index, [])))
+    return out
+
+
+def _joined(segments: List[tuple], place) -> Tuple[List[float], List[int], int]:
+    """Segments as the ends the host draws, a connected head sent once.
+
+    Each segment names the one it hangs from by its place in the list, and that
+    place is always earlier — both readers above make sure of it.
+    """
+    ends: List[float] = []
+    parents: List[int] = []
+    tails: List[int] = []
+    for head, tail, above in segments:
+        if len(parents) >= MOST_ENDS - 1:
+            break
+        if above >= 0 and all(abs(a - b) < 1e-4
+                              for a, b in zip(head, segments[above][1])):
+            start = tails[above]
+        else:
+            start = len(parents)
+            ends.extend(place(*head))
+            parents.append(tails[above] if above >= 0 else -1)
+        tails.append(len(parents))
+        ends.extend(place(*tail))
+        parents.append(start)
+    return ends, parents, len(tails)
 
 
 def pack_floats(values) -> bytes:
