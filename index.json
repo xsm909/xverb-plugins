@@ -71,7 +71,7 @@
     "folder": "disk-map",
     "id": "org.xverb.diskmap",
     "name": "Disk map",
-    "version": "1.1.0",
+    "version": "1.1.1",
     "description": "What is taking up the room: a ring of folders you can walk into, mark, and have the application clear away.",
     "runtime": "python",
     "apiVersion": 1,
@@ -83,7 +83,7 @@
     "pythonMin": "3.12",
     "category": "Tools",
     "icon": "chart",
-    "updated": "2026-09-13T10:23:53+02:00"
+    "updated": "2026-09-13T14:41:57+02:00"
   },
   {
     "folder": "duplicates",
