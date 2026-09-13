@@ -35,19 +35,23 @@ import re
 import threading
 import time
 from collections import deque
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 from urllib.parse import quote, unquote, urlparse
 
 from xverb import (
     Plugin,
     button,
     chart,
+    column,
     delete,
     navigate,
     notice,
     open_viewer,
+    page,
     respond,
+    row,
     segment,
+    table,
 )
 
 VIEW_ID = "diskmap.rings"
@@ -111,7 +115,10 @@ class Scan:
         self.lock = threading.RLock()
         self.root = Node(_name_of(url), url, True, None)
         self.files = 0
-        self.unreadable = 0
+        #: The folders the walk could not read, and why, as ``(url, reason)``.
+        #: It used to be a count, which answered "how many" and never "which"
+        #: or "why" — the reason was in the walk's hands and thrown away.
+        self.unreadable: List[Tuple[str, str]] = []
         self.scanning = False
         #: When the walk finished, by the clock the staleness check uses. None
         #: while nothing has ever completed.
@@ -144,6 +151,11 @@ class Session:
         # What the wedges of the last chart stood for, so an event that names
         # one by number can be turned back into a node.
         self.shown: List[Optional[Node]] = []
+        # True while the list of unreadable folders is over the map. The scan
+        # goes on pushing the map, and must not push it over the page.
+        self.on_page = False
+        # The folders on that page, by row.
+        self.listed: List[str] = []
 
     @property
     def lock(self) -> threading.RLock:
@@ -253,6 +265,24 @@ def _scandir(native: str, url: str) -> List[dict]:
     return found
 
 
+def _why(error: BaseException) -> str:
+    """What stopped a folder being read, in words the list can show.
+
+    Kept at the moment it is known. A list of paths answers "which"; the reason
+    answers "and can I do anything about it", which is the half that matters.
+    """
+    if isinstance(error, PermissionError):
+        return plugin.tr("Not allowed to look inside")
+    if isinstance(error, FileNotFoundError):
+        return plugin.tr("Gone since it was listed")
+    if isinstance(error, NotADirectoryError):
+        return plugin.tr("Not a folder any more")
+    if isinstance(error, OSError) and error.strerror:
+        # The system's own words, in the system's own language.
+        return error.strerror
+    return str(error) or type(error).__name__
+
+
 def _walk(scan: Scan, generation: int) -> None:
     """Measures the tree, pushing the chart as it goes.
 
@@ -273,9 +303,9 @@ def _walk(scan: Scan, generation: int) -> None:
 
         try:
             entries = _entries(node.url)
-        except Exception:  # noqa: BLE001 - one unreadable folder is not fatal
+        except Exception as error:  # noqa: BLE001 - one unreadable folder is not fatal
             with scan.lock:
-                scan.unreadable += 1
+                scan.unreadable.append((node.url, _why(error)))
             continue
 
         with scan.lock:
@@ -317,9 +347,12 @@ def _push(scan: Scan, generation: int) -> None:
     if scan.generation != generation:
         return
     with scan.lock:
+        # Not a session reading the list of unreadable folders: a push is the
+        # map, and it would land over the page instead of under it.
         drawn = [
             (session, _draw(session), [label for label, _ in _trail_of(session)])
             for session in scan.watchers.values()
+            if not session.on_page
         ]
 
     for session, (content, title, status), trail in drawn:
@@ -340,7 +373,7 @@ def _start_scan(scan: Scan) -> None:
         generation = scan.generation
         scan.root = Node(_name_of(scan.url), scan.url, True, None)
         scan.files = 0
-        scan.unreadable = 0
+        scan.unreadable = []
         scan.scanning = True
         scan.finished_at = None
         # Every watcher was looking at nodes that no longer exist.
@@ -469,7 +502,7 @@ def _draw(session: Session):
             # to the whole is a ring that lies about where the room went.
             segments.append(
                 segment(
-                    "%d more" % (len(children) - slices),
+                    plugin.tr("{count} more", {"count": len(children) - slices}),
                     rest,
                     parent=parent_index,
                     detail=human(rest),
@@ -487,20 +520,45 @@ def _draw(session: Session):
         buttons.append(
             button(
                 "clean",
-                "Clean up %d item(s), %s" % (len(session.marked), human(marked_size)),
+                plugin.tr(
+                    "Clean up {count} item(s), {size}",
+                    {"count": len(session.marked), "size": human(marked_size)},
+                ),
                 danger=True,
             )
         )
         # The way back from a slip of the hand. Picking things out one at a
         # time is easy to do by accident and tedious to undo the same way.
-        buttons.append(button("unmark", "Clear %d mark(s)" % len(session.marked)))
+        buttons.append(
+            button(
+                "unmark",
+                plugin.tr("Clear {count} mark(s)", {"count": len(session.marked)}),
+            )
+        )
+    # **What could not be read is something to press**, not only a remark at
+    # the bottom: it opens the list of those folders and why, and Back comes
+    # home to the map (backlog 115).
+    if scan.unreadable:
+        buttons.append(
+            button(
+                "unreadable",
+                plugin.tr(
+                    "{count} folder(s) could not be read",
+                    {"count": len(scan.unreadable)},
+                ),
+            )
+        )
     # Up is offered whenever there is anywhere above, and the address bar knows
     # about more levels than the scan does: opening the map on `C:\Users` makes
     # that the root of what was measured, and the button used to disappear at
     # exactly the place a user is most likely to want it.
     if session.focus.parent is not None or len(_trail_of(session)) > 1:
-        buttons.append(button("up", "Up"))
-    buttons.append(button("rescan", "Rescan" if not scan.scanning else "Stop"))
+        buttons.append(button("up", plugin.tr("Up")))
+    buttons.append(
+        button(
+            "rescan", plugin.tr("Rescan") if not scan.scanning else plugin.tr("Stop")
+        )
+    )
 
     content = chart(
         segments,
@@ -509,15 +567,23 @@ def _draw(session: Session):
         buttons=buttons,
     )
 
-    status = "%s in %d file(s)" % (human(scan.root.size), scan.files)
+    status = plugin.tr(
+        "{size} in {count} file(s)",
+        {"size": human(scan.root.size), "count": scan.files},
+    )
     if scan.scanning:
-        status = "Scanning… " + status
+        status = plugin.tr("Scanning… {status}", {"status": status})
     else:
-        status += " · measured %s" % _ago(scan.age())
+        status += " · " + plugin.tr("measured {when}", {"when": _ago(scan.age())})
     if scan.unreadable:
-        status += " · %d folder(s) could not be read" % scan.unreadable
+        status += " · " + plugin.tr(
+            "{count} folder(s) could not be read", {"count": len(scan.unreadable)}
+        )
     if session.marked:
-        status += " · %d marked, %s" % (len(session.marked), human(marked_size))
+        status += " · " + plugin.tr(
+            "{count} marked, {size}",
+            {"count": len(session.marked), "size": human(marked_size)},
+        )
 
     return content, _path_of(session), status
 
@@ -534,12 +600,12 @@ def _path_of(session: Session) -> str:
 def _ago(seconds: Optional[float]) -> str:
     """How old the measurement is, so the map never pretends to be live."""
     if seconds is None:
-        return "not yet"
+        return plugin.tr("not yet")
     if seconds < 90:
-        return "just now"
+        return plugin.tr("just now")
     if seconds < 5400:
-        return "%d minutes ago" % (seconds // 60)
-    return "%d hours ago" % (seconds // 3600)
+        return plugin.tr("{count} minutes ago", {"count": int(seconds // 60)})
+    return plugin.tr("{count} hours ago", {"count": int(seconds // 3600)})
 
 
 def _trail_of(session: Session) -> List[tuple]:
@@ -614,12 +680,24 @@ def _answer(session: Session, actions: Optional[List[dict]] = None) -> dict:
 def disk_map(context, event):
     if event.kind == "open":
         if not context.url:
-            return respond(status="Open this on a folder.")
+            return respond(status=plugin.tr("Open this on a folder."))
         session = _open_session(context)
         return _answer(session)
 
     session = _sessions.get(context.session)
     if session is None:
+        return None
+
+    # The host has put the map back from what it kept; nothing to draw.
+    if event.kind == "back":
+        session.on_page = False
+        return None
+
+    # On the list of unreadable folders a press is about a row of it, and the
+    # map's own gestures — marking, the address bar, Backspace — mean nothing.
+    if session.on_page:
+        if event.kind == "activate":
+            return _go_near(session, event.row)
         return None
 
     if event.kind == "activate":
@@ -772,7 +850,7 @@ def _up(session: Session) -> dict:
         surface = session.surface
 
     if len(trail) < 2:
-        return respond(actions=[notice("This is the top of the disk.")])
+        return respond(actions=[notice(plugin.tr("This is the top of the disk."))])
 
     moved = _point(session.id, surface, trail[-2][1])
     return _answer(moved, _walk_to(moved.focus))
@@ -808,7 +886,61 @@ def _mark(session: Session, row: Optional[int]) -> Optional[dict]:
     return _answer(session)
 
 
+def _unreadable(session: Session) -> Optional[dict]:
+    """The folders the walk could not read, and why — a page over the map.
+
+    Asked for on 2026-09-05: the map said how many and nobody could find out
+    which. Back and Escape come home to the map, which the host redraws from
+    what it kept rather than asking again. A row pressed sends the other panel
+    to the folder that one is in, where it can be looked at.
+    """
+    with session.lock:
+        failed = list(session.scan.unreadable)
+    if not failed:
+        return None
+    session.on_page = True
+    session.listed = [url for url, _ in failed]
+    return respond(
+        content=table(
+            [column(plugin.tr("Folder"), flex=3), column(plugin.tr("Why"), flex=2)],
+            [row([_shown_path(url), why]) for url, why in failed],
+        ),
+        status=plugin.tr(
+            "{count} folder(s) could not be read", {"count": len(failed)}
+        ),
+        actions=[page(plugin.tr("Could not be read"))],
+    )
+
+
+def _go_near(session: Session, index: Optional[int]) -> Optional[dict]:
+    """A row of the unreadable list was pressed: the other panel goes to the
+    folder holding it — the unreadable one itself would only say it cannot be
+    read, which the list has already said."""
+    if index is None or index < 0 or index >= len(session.listed):
+        return None
+    url = session.listed[index]
+    parsed = urlparse(url)
+    parent = parsed.path.rstrip("/").rsplit("/", 1)[0] or "/"
+    return respond(actions=[navigate(parsed._replace(path=parent).geturl())])
+
+
+def _shown_path(url: str) -> str:
+    """Where a folder is, as a person reads it: the machine's own path on this
+    machine, and elsewhere the address with no login or password in it."""
+    native = _local_path(url)
+    if native is not None:
+        return native
+    parsed = urlparse(url)
+    host = parsed.hostname or ""
+    if parsed.port:
+        host += ":%d" % parsed.port
+    return unquote(parsed._replace(netloc=host, query="").geturl())
+
+
 def _button(session: Session, button_id: Optional[str]) -> Optional[dict]:
+    if button_id == "unreadable":
+        return _unreadable(session)
+
     if button_id == "up":
         return _up(session)
 
@@ -818,7 +950,7 @@ def _button(session: Session, button_id: Optional[str]) -> Optional[dict]:
             session.marked.clear()
         if count == 0:
             return None
-        return _answer(session, [notice("Nothing is marked any more.")])
+        return _answer(session, [notice(plugin.tr("Nothing is marked any more."))])
 
     if button_id == "rescan":
         scan = session.scan
