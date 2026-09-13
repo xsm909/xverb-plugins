@@ -35,8 +35,8 @@
     "folder": "blend",
     "id": "org.xverb.blend",
     "name": "Blender",
-    "version": "0.2.0",
-    "description": "Shows what is in a .blend: the model, shaded and textured and turnable, and a report of everything the file holds \u2014 objects, meshes and how heavy they are, materials, rigs and actions, and, where the geometry lives in another file, which file that is.",
+    "version": "0.3.0",
+    "description": "Shows what is in a .blend: the model, shaded and textured and turnable \u2014 or the rig, where there is no mesh \u2014 and a report of everything the file holds \u2014 objects, meshes and how heavy they are, materials, rigs and actions, and, where the geometry lives in another file, which file that is.",
     "runtime": "python",
     "apiVersion": 1,
     "platforms": [
@@ -107,8 +107,8 @@
     "folder": "fbx",
     "id": "org.xverb.fbx",
     "name": "3D",
-    "version": "0.12.1",
-    "description": "Shows a 3D model: shaded, turnable, textured, playing its animation \u2014 and what the file holds. FBX, glTF/GLB and OBJ, one viewer for all of them.",
+    "version": "0.13.0",
+    "description": "Shows a 3D model: shaded, turnable, textured, playing its animation \u2014 or its skeleton playing it, where the file has no mesh \u2014 and what the file holds. FBX, glTF/GLB and OBJ, one viewer for all of them.",
     "runtime": "python",
     "apiVersion": 1,
     "platforms": [
