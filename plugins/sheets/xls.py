@@ -152,6 +152,7 @@ BOUNDSHEET, SST, FORMAT, XF, DATEMODE, FILEPASS, CODEPAGE, FONT = (
     0x0085, 0x00FC, 0x041E, 0x00E0, 0x0022, 0x002F, 0x0042, 0x0031)
 LABELSST, LABEL, NUMBER, RK, MULRK, FORMULA, STRING, BOOLERR, RSTRING = (
     0x00FD, 0x0204, 0x0203, 0x027E, 0x00BD, 0x0006, 0x0207, 0x0205, 0x00D6)
+MERGEDCELLS, ROWREC, COLINFO = 0x00E5, 0x0208, 0x007D
 
 _ERRORS = {0x00: "#NULL!", 0x07: "#DIV/0!", 0x0F: "#VALUE!", 0x17: "#REF!",
            0x1D: "#NAME?", 0x24: "#NUM!", 0x2A: "#N/A"}
@@ -382,8 +383,9 @@ class Book:
             if read > total:  # cannot be more strings than bytes
                 break
 
-    def rows(self, index: int) -> List[list]:
-        """Every row of sheet [index], as values, gaps left empty."""
+    def rows(self, index: int, extras: Optional[dict] = None) -> List[list]:
+        """Every row of sheet [index], as values, gaps left empty — and into
+        [extras] the joined cells and the rows and columns the sheet hides."""
         general = numfmt.Format("General")
         comma = self.language.split("-")[0] in numfmt.COMMA_LANGUAGES
         grid: Dict[int, Dict[int, object]] = {}
@@ -453,6 +455,22 @@ class Book:
                         put(row, column, {"v": text, "t": text, "r": "error"})
                 else:
                     number(row, column, xf, struct.unpack("<d", result)[0])
+            elif extras is not None and kind == MERGEDCELLS and len(data) >= 2:
+                count = struct.unpack_from("<H", data, 0)[0]
+                for k in range(count):
+                    at = 2 + k * 8
+                    if at + 8 > len(data):
+                        break
+                    top, bottom, left, right = struct.unpack_from("<HHHH", data, at)
+                    extras["merges"].append((top, left, bottom, right))
+            elif extras is not None and kind == ROWREC and len(data) >= 14:
+                row, = struct.unpack_from("<H", data, 0)
+                if struct.unpack_from("<H", data, 12)[0] & 0x20:
+                    extras["hidden_rows"].append(row)
+            elif extras is not None and kind == COLINFO and len(data) >= 10:
+                first, last = struct.unpack_from("<HH", data, 0)
+                if struct.unpack_from("<H", data, 8)[0] & 1:
+                    extras["hidden_columns"].extend(range(first, min(last, first + 1024) + 1))
             elif kind == STRING and last_formula is not None and len(data) >= 3:
                 count = struct.unpack_from("<H", data, 0)[0]
                 put(last_formula[0], last_formula[1], self._string(data, 2, count))

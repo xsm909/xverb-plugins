@@ -141,13 +141,22 @@ def made_xlsx() -> bytes:
                    '</numFmts><fonts><font/><font><b/></font></fonts>'
                    '<cellXfs><xf numFmtId="0"/><xf numFmtId="164"/><xf numFmtId="4" fontId="1"/>'
                    '</cellXfs></styleSheet>' % main)
+        z.writestr("xl/worksheets/_rels/sheet1.xml.rels",
+                   '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+                   '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/'
+                   '2006/relationships/comments" Target="../comments1.xml"/></Relationships>')
+        z.writestr("xl/comments1.xml",
+                   '<comments xmlns="%s"><commentList><comment ref="C3"><text><r><t>со '
+                   'скидкой</t></r></text></comment></commentList></comments>' % main)
         z.writestr("xl/worksheets/sheet1.xml",
-                   '<worksheet xmlns="%s"><sheetData>'
+                   '<worksheet xmlns="%s"><cols><col min="7" max="7" hidden="1"/></cols><sheetData>'
                    '<row r="1"><c r="A1" t="s"><v>0</v></c><c r="B1" t="s"><v>1</v></c></row>'
+                   '<row r="2" hidden="1"/>'
                    '<row r="3"><c r="A3" t="s"><v>2</v></c><c r="C3" s="2"><v>1250.5</v></c>'
                    '<c r="D3" s="1"><v>46266</v></c><c r="E3" t="b"><v>1</v></c>'
                    '<c r="F3" t="inlineStr"><is><t>сам</t></is></c><c r="G3" t="e"><v>#DIV/0!</v></c></row>'
-                   '</sheetData></worksheet>' % main)
+                   '</sheetData><mergeCells count="1"><mergeCell ref="A1:B1"/></mergeCells>'
+                   '</worksheet>' % main)
         z.writestr("xl/worksheets/sheet2.xml",
                    '<worksheet xmlns="%s"><sheetData/></worksheet>' % main)
     return out.getvalue()
@@ -330,6 +339,12 @@ def workbooks() -> None:
         {"v": "#DIV/0!", "t": "#DIV/0!", "r": "error"},
     ])
     check("xlsx empty sheet", book.rows(1), [])
+    extras = {"merges": [], "notes": {}, "hidden_rows": [], "hidden_columns": []}
+    book.fill(0, [], None, extras)
+    check("xlsx: what it says besides its cells", extras,
+          {"merges": [(0, 0, 0, 1)], "notes": {}, "hidden_rows": [1],
+           "hidden_columns": [6]})
+    check("xlsx notes", book.notes(0), {(2, 2): "со скидкой"})
 
     content = (
         '<office:document-content xmlns:office="%s" xmlns:table="%s" xmlns:text="%s" '
@@ -339,8 +354,12 @@ def workbooks() -> None:
         '<office:body><office:spreadsheet><table:table table:name="A">'
         '<table:table-row><table:table-cell table:style-name="ce1" office:value-type="float" office:value="2">'
         '<text:p>2</text:p></table:table-cell><table:table-cell table:number-columns-repeated="3"/>'
-        '<table:table-cell office:value-type="string"><text:p>a<text:s text:c="2"/>b</text:p>'
+        '<table:table-cell office:value-type="string" table:number-columns-spanned="2">'
+        '<office:annotation><text:p>заметка</text:p></office:annotation>'
+        '<text:p>a<text:s text:c="2"/>b</text:p>'
         '</table:table-cell></table:table-row>'
+        '<table:table-row table:visibility="collapse"><table:table-cell office:value-type="string">'
+        '<text:p>hidden</text:p></table:table-cell></table:table-row>'
         '<table:table-row table:number-rows-repeated="1048575"><table:table-cell '
         'table:number-columns-repeated="1024"/></table:table-row>'
         '</table:table></office:spreadsheet></office:body></office:document-content>'
@@ -350,8 +369,12 @@ def workbooks() -> None:
         z.writestr("mimetype", "application/vnd.oasis.opendocument.spreadsheet")
         z.writestr("content.xml", content)
     sheets = ods.read(out.getvalue(), "en")
-    check("ods, the empty million rows not made, bold kept",
-          sheets, [("A", [[{"v": 2, "r": "strong"}, None, None, None, "a  b"]])])
+    check("ods, the empty million rows not made, bold kept, the note not the text",
+          [(n, r) for n, r, _ in sheets],
+          [("A", [[{"v": 2, "r": "strong"}, None, None, None, "a  b"], ["hidden"]])])
+    check("ods: what it says besides its cells", sheets[0][2],
+          {"merges": [(0, 4, 0, 5)], "notes": {(0, 4): "заметка"},
+           "hidden_rows": [1], "hidden_columns": []})
 
 
 def corpus(folder: str) -> None:
@@ -366,7 +389,12 @@ def corpus(folder: str) -> None:
             started = time.time()
             try:
                 titles, load = main._open(raw, "ru", 0)
-                counts = [len(load(i).rows) for i in range(len(titles))]
+                sheets = [load(i) for i in range(len(titles))]
+                for sheet in sheets:
+                    # A sheet read in a thread is waited for here.
+                    while sheet.done is not None and not sheet.done():
+                        time.sleep(0.01)
+                counts = [len(sheet.rows) for sheet in sheets]
             except Exception as failure:  # noqa: BLE001
                 failures += 1
                 print("FAIL %s: %s" % (name, failure))

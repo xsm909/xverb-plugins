@@ -55,11 +55,12 @@ def is_spreadsheet(archive: zipfile.ZipFile) -> bool:
     return kind.startswith("application/vnd.oasis.opendocument.spreadsheet")
 
 
-def read(raw: bytes, language: str = "en", max_rows: int = 0) -> List[Tuple[str, List[list]]]:
-    """Every sheet, as (name, rows)."""
+def read(raw: bytes, language: str = "en", max_rows: int = 0) -> List[Tuple[str, List[list], dict]]:
+    """Every sheet, as (name, rows, extras) — extras being the joined cells,
+    the notes, and the rows and columns the sheet hides."""
     archive = zipfile.ZipFile(io.BytesIO(raw))
     comma = language.split("-")[0] in numfmt.COMMA_LANGUAGES
-    sheets: List[Tuple[str, List[list]]] = []
+    sheets: List[Tuple[str, List[list], dict]] = []
     t_table = "{%s}table" % TABLE
     t_row = "{%s}table-row" % TABLE
     t_cell = "{%s}table-cell" % TABLE
@@ -71,7 +72,14 @@ def read(raw: bytes, language: str = "en", max_rows: int = 0) -> List[Tuple[str,
     t_style = "{%s}style" % STYLE
     t_text_props = "{%s}text-properties" % STYLE
     a_style_name = "{%s}style-name" % TABLE
+    a_visibility = "{%s}visibility" % TABLE
+    a_span_cols = "{%s}number-columns-spanned" % TABLE
+    a_span_rows = "{%s}number-rows-spanned" % TABLE
+    t_column = "{%s}table-column" % TABLE
+    t_note = "{%s}annotation" % OFFICE
     bold_styles = set()
+    extras: dict = {}
+    column_at = 0
 
     with archive.open("content.xml") as part:
         rows: List[list] = []
@@ -87,6 +95,9 @@ def read(raw: bytes, language: str = "en", max_rows: int = 0) -> List[Tuple[str,
                     if depth == 1:
                         rows = []
                         blank_rows = 0
+                        column_at = 0
+                        extras = {"merges": [], "notes": {}, "hidden_rows": [],
+                                  "hidden_columns": []}
                 elif tag == t_row:
                     row = []
                     blank_cells = 0
@@ -99,8 +110,28 @@ def read(raw: bytes, language: str = "en", max_rows: int = 0) -> List[Tuple[str,
                     if props.get("{%s}font-weight" % FO) in ("bold", "700", "800", "900"):
                         bold_styles.add(element.get("{%s}name" % STYLE))
                 continue
+            if tag == t_column and depth == 1:
+                repeat = min(int(element.get(a_cols) or 1), 1024)
+                if element.get(a_visibility) in ("collapse", "filter"):
+                    extras["hidden_columns"].extend(range(column_at, column_at + repeat))
+                column_at += repeat
+                element.clear()
+                continue
             if tag in (t_cell, t_covered):
                 repeat = int(element.get(a_cols) or 1)
+                row_at = len(rows) + blank_rows
+                col_at = len(row) + blank_cells
+                if tag == t_cell and depth == 1:
+                    spans = (int(element.get(a_span_rows) or 1),
+                             int(element.get(a_span_cols) or 1))
+                    if spans != (1, 1):
+                        extras["merges"].append(
+                            (row_at, col_at, row_at + spans[0] - 1, col_at + spans[1] - 1))
+                    note = element.find(t_note)
+                    if note is not None:
+                        said = "\n".join(_flatten(p) for p in note.iter(t_p)).strip()
+                        if said:
+                            extras["notes"][(row_at, col_at)] = said
                 value = _value(element, comma, t_p) if tag == t_cell else None
                 if value not in (None, "") and element.get(a_style_name) in bold_styles:
                     if not isinstance(value, dict):
@@ -117,6 +148,9 @@ def read(raw: bytes, language: str = "en", max_rows: int = 0) -> List[Tuple[str,
                 element.clear()
             elif tag == t_row:
                 repeat = int(element.get(a_rows) or 1)
+                if depth == 1 and element.get(a_visibility) in ("collapse", "filter"):
+                    first = len(rows) + blank_rows
+                    extras["hidden_rows"].extend(range(first, first + min(repeat, 1024)))
                 if not row:
                     blank_rows += repeat
                 else:
@@ -131,7 +165,10 @@ def read(raw: bytes, language: str = "en", max_rows: int = 0) -> List[Tuple[str,
             elif tag == t_table:
                 depth -= 1
                 if depth == 0:
-                    sheets.append((element.get(a_name) or "Sheet%d" % (len(sheets) + 1), rows))
+                    last = len(rows)
+                    extras["hidden_rows"] = [r for r in extras["hidden_rows"] if r < last]
+                    sheets.append((element.get(a_name) or "Sheet%d" % (len(sheets) + 1),
+                                   rows, extras))
                     element.clear()
     return sheets
 
@@ -175,8 +212,10 @@ def _value(cell, comma: bool, t_p: str):
 def _text(cell, t_p: str) -> str:
     """The paragraphs of a cell, a line each; `text:s` is a run of spaces
     and `text:tab` a tab, which is how the format keeps them."""
+    # The cell's own paragraphs only: a note hangs inside the cell too, with
+    # paragraphs of its own, and it is not what the cell says.
     lines = []
-    for paragraph in cell.iter(t_p):
+    for paragraph in cell.findall(t_p):
         lines.append(_flatten(paragraph))
     return "\n".join(lines)
 

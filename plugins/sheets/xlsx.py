@@ -126,6 +126,40 @@ class Workbook:
             out[element.get("Id") or ""] = path
         return out
 
+    def _related(self, owner: str, kind: str) -> List[str]:
+        """The parts [owner] points at with a relationship of [kind] —
+        `comments`, say — found by the end of the relationship's type."""
+        folder, base = posixpath.split(owner)
+        root = self._xml(posixpath.join(folder, "_rels", base + ".rels"))
+        if root is None:
+            return []
+        out = []
+        for element in root:
+            if not (element.get("Type") or "").endswith("/" + kind):
+                continue
+            target = element.get("Target") or ""
+            out.append(target.lstrip("/") if target.startswith("/") else
+                       posixpath.normpath(posixpath.join(folder, target)))
+        return out
+
+    def notes(self, index: int) -> Dict[tuple, str]:
+        """The notes on sheet [index], by (row, column)."""
+        out: Dict[tuple, str] = {}
+        for name in self._related(self._parts[index], "comments"):
+            root = self._xml(name)
+            if root is None:
+                continue
+            for element in root.iter():
+                if _local(element.tag) != "comment":
+                    continue
+                ref = element.get("ref") or ""
+                text = "".join(
+                    t.text or "" for t in element.iter() if _local(t.tag) == "t"
+                ).strip()
+                if ref and text:
+                    out[(row_number(ref), column_index(ref))] = text
+        return out
+
     def _shared_strings(self) -> List[str]:
         part = self._open("xl/sharedStrings.xml")
         if part is None:
@@ -209,7 +243,8 @@ class Workbook:
         return out
 
     def fill(self, index: int, out: List[list],
-             stop: Optional[Callable[[], bool]] = None) -> None:
+             stop: Optional[Callable[[], bool]] = None,
+             extras: Optional[dict] = None) -> None:
         """Reads sheet [index] into [out], a row at a time as the file goes.
 
         **Expat, not a tree.** ElementTree made an object of every `<c>` and
@@ -257,6 +292,22 @@ class Workbook:
                 wanted = row_number(attrs.get("r") or "")
                 state["row_at"] = wanted if wanted >= 0 else state["row_at"] + 1
                 row.clear()
+                if extras is not None and attrs.get("hidden") in ("1", "true"):
+                    extras["hidden_rows"].append(state["row_at"])
+            elif name == "col" and extras is not None:
+                if attrs.get("hidden") in ("1", "true"):
+                    try:
+                        first = int(attrs.get("min") or 0) - 1
+                        last = min(int(attrs.get("max") or 0) - 1, first + 1024)
+                    except ValueError:
+                        first, last = 0, -1
+                    extras["hidden_columns"].extend(range(max(0, first), last + 1))
+            elif name == "mergeCell" and extras is not None:
+                ref = attrs.get("ref") or ""
+                if ":" in ref:
+                    a, b = ref.split(":", 1)
+                    extras["merges"].append(
+                        (row_number(a), column_index(a), row_number(b), column_index(b)))
             elif name in ("rPh", "phoneticPr"):
                 state["inline"] = False
 

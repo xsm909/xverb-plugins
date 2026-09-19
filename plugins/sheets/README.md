@@ -32,6 +32,16 @@ Everything is the standard library; nothing third-party is shipped.
 - Whether the first row is a header is the host's guess, overruled with one
   press.
 
+## What else is kept
+
+- **Joined cells** — drawn as one, the first cell's text across all of them:
+  from .xlsx `<mergeCell>`, .xls MERGEDCELLS records and .ods spans.
+- **Notes** — marked in the cell's corner and read in the status line: .xlsx
+  comments and .ods annotations. (.xls keeps its notes in drawing objects,
+  which are not read.)
+- **Hidden rows and columns** stay hidden, as in the program that hid them,
+  until the reader asks to see them from the menu: .xlsx, .xls and .ods.
+
 ## What is not
 
 Charts, pictures, colours and fonts beyond bold, and anything a macro does.

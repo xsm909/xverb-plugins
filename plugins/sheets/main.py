@@ -36,6 +36,7 @@ import sys
 import threading
 import time
 import zipfile
+from typing import Optional
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -104,7 +105,12 @@ def _open(raw: bytes, language: str, max_rows: int):
     head = raw[:8192]
     if raw[:8] == xls.MAGIC:
         book = xls.Book(raw, language, max_rows)
-        return book.titles, lambda i: _sheet(book.titles[i], book.rows(i))
+
+        def page(i):
+            extras = _extras()
+            return _sheet(book.titles[i], book.rows(i, extras), extras)
+
+        return book.titles, page
 
     if raw[:2] == b"PK":
         archive = zipfile.ZipFile(io.BytesIO(raw))
@@ -113,15 +119,22 @@ def _open(raw: bytes, language: str, max_rows: int):
             sheets = ods.read(raw, language, max_rows)
             if not sheets:
                 raise ValueError(plugin.tr("This spreadsheet holds no sheets."))
-            return [name for name, _ in sheets], \
-                lambda i: _sheet(sheets[i][0], sheets[i][1])
-        for kind in (xlsx, xlsb):
-            if kind.is_workbook(names):
-                book = kind.Workbook(raw, language, max_rows)
-                if not book.titles:
-                    raise ValueError(plugin.tr("This workbook holds no sheets."))
-                return book.titles, lambda i, book=book: _reading(
-                    book.titles[i], lambda rows, stop: book.fill(i, rows, stop))
+            return [name for name, _, _ in sheets], \
+                lambda i: _sheet(sheets[i][0], sheets[i][1], sheets[i][2])
+        if xlsx.is_workbook(names):
+            book = xlsx.Workbook(raw, language, max_rows)
+            if not book.titles:
+                raise ValueError(plugin.tr("This workbook holds no sheets."))
+            return book.titles, lambda i: _reading(
+                book.titles[i],
+                lambda rows, stop, extras: book.fill(i, rows, stop, extras),
+                notes=book.notes(i))
+        if xlsb.is_workbook(names):
+            binary = xlsb.Workbook(raw, language, max_rows)
+            if not binary.titles:
+                raise ValueError(plugin.tr("This workbook holds no sheets."))
+            return binary.titles, lambda i: _reading(
+                binary.titles[i], lambda rows, stop, extras: binary.fill(i, rows, stop))
         raise ValueError(plugin.tr(
             "This zip is not a spreadsheet. Shift+F3 shows what is inside it."))
 
@@ -150,7 +163,11 @@ def _given(sheets, max_rows: int):
 FIRST_ROWS = 300
 
 
-def _reading(title: str, fill) -> Sheet:
+def _extras() -> dict:
+    return {"merges": [], "notes": {}, "hidden_rows": [], "hidden_columns": []}
+
+
+def _reading(title: str, fill, notes: Optional[dict] = None) -> Sheet:
     """A sheet shown as soon as its first screen is read.
 
     A large .xlsx takes seconds to read to the end, and there is no reason to
@@ -159,13 +176,16 @@ def _reading(title: str, fill) -> Sheet:
     asks again until it is not.
     """
     rows: list = []
+    extras = _extras()
+    if notes:
+        extras["notes"] = notes
     stop = threading.Event()
     finished = threading.Event()
     failure: list = []
 
     def work() -> None:
         try:
-            fill(rows, stop.is_set)
+            fill(rows, stop.is_set, extras)
         except Exception as problem:  # noqa: BLE001 - said, not raised
             failure.append(problem)
         finally:
@@ -180,16 +200,22 @@ def _reading(title: str, fill) -> Sheet:
                                    {"error": failure[0]}))
     if finished.is_set() and not rows:
         return Sheet(title, [], message=plugin.tr("This sheet is empty."))
-    return Sheet(title, rows, done=finished.is_set, cancel=stop.set)
+    return Sheet(title, rows, done=finished.is_set, cancel=stop.set,
+                 merges=extras["merges"], notes=extras["notes"],
+                 hidden_rows=extras["hidden_rows"],
+                 hidden_columns=extras["hidden_columns"])
 
 
-def _sheet(title: str, rows: list) -> Sheet:
+def _sheet(title: str, rows: list, extras: Optional[dict] = None) -> Sheet:
     # Trailing empty rows say nothing and would only lengthen the scroll.
     while rows and not rows[-1]:
         rows.pop()
     if not rows:
         return Sheet(title, [], message=plugin.tr("This sheet is empty."))
-    return Sheet(title, rows)
+    extras = extras or _extras()
+    return Sheet(title, rows, merges=extras["merges"], notes=extras["notes"],
+                 hidden_rows=extras["hidden_rows"],
+                 hidden_columns=extras["hidden_columns"])
 
 
 if __name__ == "__main__":
