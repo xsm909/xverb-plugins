@@ -44,7 +44,12 @@ for the manifest, the extension points and the RPC protocol.
 1. Make a folder under `plugins/`.
 2. Write `plugin.json` — `id`, `name`, `version`, `apiVersion`, `runtime`.
 3. Add a `README.md` saying what it does and what it claims.
-4. Run `python3 tools/validate.py` before pushing.
+4. Add a `CHANGES.md`, newest version first — `## 0.1.0 — 2026-09-19` and a
+   bullet per change. The app shows it on the plugin's card when someone
+   presses **?** or F1 on a page the plugin draws (the date stays in the file).
+   Add to it every time the version moves. A picture for the top of that card
+   is optional: `"banner": "banner.png"` in `plugin.json`, 1240 × 500.
+5. Run `python3 tools/validate.py` before pushing.
 
 `id` must be unique across this repository, and `apiVersion` must match the
 host — a mismatch is refused rather than guessed at.
@@ -53,6 +58,7 @@ host — a mismatch is refused rather than guessed at.
 
 ```
 plugins/<name>/plugin.json    the manifest, and the only required file
+plugins/<name>/CHANGES.md     what changed, version by version
 plugins/<name>/main.py        entry point for a python plugin
 index.json                    generated summary, for tooling that wants one
 tools/validate.py             checks every manifest here
