@@ -37,6 +37,8 @@ import numfmt
 TABLE = "urn:oasis:names:tc:opendocument:xmlns:table:1.0"
 OFFICE = "urn:oasis:names:tc:opendocument:xmlns:office:1.0"
 TEXT = "urn:oasis:names:tc:opendocument:xmlns:text:1.0"
+STYLE = "urn:oasis:names:tc:opendocument:xmlns:style:1.0"
+FO = "urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0"
 
 _DURATION = re.compile(r"P(?:(\d+)D)?T?(?:(\d+)H)?(?:(\d+)M)?(?:([\d.]+)S)?")
 
@@ -66,6 +68,10 @@ def read(raw: bytes, language: str = "en", max_rows: int = 0) -> List[Tuple[str,
     a_name = "{%s}name" % TABLE
     a_rows = "{%s}number-rows-repeated" % TABLE
     a_cols = "{%s}number-columns-repeated" % TABLE
+    t_style = "{%s}style" % STYLE
+    t_text_props = "{%s}text-properties" % STYLE
+    a_style_name = "{%s}style-name" % TABLE
+    bold_styles = set()
 
     with archive.open("content.xml") as part:
         rows: List[list] = []
@@ -86,9 +92,21 @@ def read(raw: bytes, language: str = "en", max_rows: int = 0) -> List[Tuple[str,
                     blank_cells = 0
                 continue
 
+            if tag == t_style:
+                # Automatic styles come before the tables: a cell style whose
+                # text is bold is how a sheet marks a heading or a total.
+                for props in element.iter(t_text_props):
+                    if props.get("{%s}font-weight" % FO) in ("bold", "700", "800", "900"):
+                        bold_styles.add(element.get("{%s}name" % STYLE))
+                continue
             if tag in (t_cell, t_covered):
                 repeat = int(element.get(a_cols) or 1)
                 value = _value(element, comma, t_p) if tag == t_cell else None
+                if value not in (None, "") and element.get(a_style_name) in bold_styles:
+                    if not isinstance(value, dict):
+                        value = {"v": value, "r": "strong"}
+                    elif "r" not in value:
+                        value = dict(value, r="strong")
                 if value is None or value == "":
                     blank_cells += repeat
                 else:

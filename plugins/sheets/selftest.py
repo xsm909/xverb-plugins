@@ -76,6 +76,15 @@ def formats() -> None:
         # Day 60 is the 29th of February 1900, which never was; day 61 is
         # the first of March either way.
         ("yyyy-mm-dd", 61, "en", "1900-03-01"),
+        # The parts of a format: below nought writes its own sign, nought can
+        # be a word, and a part may be only a word.
+        ("#,##0;(#,##0)", -1234, "en", "(1\u202f234)"),
+        ('0.00;-0.00;"—"', 0, "en", "—"),
+        ('0.00 "₽";-0.00 "₽"', -12, "ru", "-12,00 ₽"),
+        ("# ?/?", 1.75, "en", "1 3/4"),
+        ("# ??/??", 3.14159, "en", "3 14/99"),
+        ("?/16", 0.3, "en", "5/16"),
+        ("General", -3.5, "ru", "-3,5"),
     ]
     for code, value, language, wanted in cases:
         check("format %r of %r" % (code, value),
@@ -127,7 +136,8 @@ def made_xlsx() -> bytes:
                    '<si><r><t>Ков</t></r><r><t>рик</t></r></si></sst>' % main)
         z.writestr("xl/styles.xml",
                    '<styleSheet xmlns="%s"><numFmts><numFmt numFmtId="164" formatCode="dd.mm.yyyy"/>'
-                   '</numFmts><cellXfs><xf numFmtId="0"/><xf numFmtId="164"/><xf numFmtId="4"/>'
+                   '</numFmts><fonts><font/><font><b/></font></fonts>'
+                   '<cellXfs><xf numFmtId="0"/><xf numFmtId="164"/><xf numFmtId="4" fontId="1"/>'
                    '</cellXfs></styleSheet>' % main)
         z.writestr("xl/worksheets/sheet1.xml",
                    '<worksheet xmlns="%s"><sheetData>'
@@ -149,7 +159,7 @@ def workbooks() -> None:
     check("xlsx gap row", rows[1], [])
     check("xlsx cells", rows[2], [
         "Коврик", None,
-        {"v": 1250.5, "t": "1 250,50"},
+        {"v": 1250.5, "t": "1 250,50", "r": "strong"},
         {"v": "2026-09-01", "t": "2026-09-01"},
         True,
         "сам",
@@ -158,22 +168,26 @@ def workbooks() -> None:
     check("xlsx empty sheet", book.rows(1), [])
 
     content = (
-        '<office:document-content xmlns:office="%s" xmlns:table="%s" xmlns:text="%s">'
+        '<office:document-content xmlns:office="%s" xmlns:table="%s" xmlns:text="%s" '
+        'xmlns:style="%s" xmlns:fo="%s">'
+        '<office:automatic-styles><style:style style:name="ce1" style:family="table-cell">'
+        '<style:text-properties fo:font-weight="bold"/></style:style></office:automatic-styles>'
         '<office:body><office:spreadsheet><table:table table:name="A">'
-        '<table:table-row><table:table-cell office:value-type="float" office:value="2">'
+        '<table:table-row><table:table-cell table:style-name="ce1" office:value-type="float" office:value="2">'
         '<text:p>2</text:p></table:table-cell><table:table-cell table:number-columns-repeated="3"/>'
         '<table:table-cell office:value-type="string"><text:p>a<text:s text:c="2"/>b</text:p>'
         '</table:table-cell></table:table-row>'
         '<table:table-row table:number-rows-repeated="1048575"><table:table-cell '
         'table:number-columns-repeated="1024"/></table:table-row>'
         '</table:table></office:spreadsheet></office:body></office:document-content>'
-    ) % (ods.OFFICE, ods.TABLE, ods.TEXT)
+    ) % (ods.OFFICE, ods.TABLE, ods.TEXT, ods.STYLE, ods.FO)
     out = io.BytesIO()
     with zipfile.ZipFile(out, "w") as z:
         z.writestr("mimetype", "application/vnd.oasis.opendocument.spreadsheet")
         z.writestr("content.xml", content)
     sheets = ods.read(out.getvalue(), "en")
-    check("ods, the empty million rows not made", sheets, [("A", [[2, None, None, None, "a  b"]])])
+    check("ods, the empty million rows not made, bold kept",
+          sheets, [("A", [[{"v": 2, "r": "strong"}, None, None, None, "a  b"]])])
 
 
 def corpus(folder: str) -> None:

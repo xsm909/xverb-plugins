@@ -148,8 +148,8 @@ class Compound:
 # -- the records ----------------------------------------------------------
 
 BOF, EOF, CONTINUE = 0x0809, 0x000A, 0x003C
-BOUNDSHEET, SST, FORMAT, XF, DATEMODE, FILEPASS, CODEPAGE = (
-    0x0085, 0x00FC, 0x041E, 0x00E0, 0x0022, 0x002F, 0x0042)
+BOUNDSHEET, SST, FORMAT, XF, DATEMODE, FILEPASS, CODEPAGE, FONT = (
+    0x0085, 0x00FC, 0x041E, 0x00E0, 0x0022, 0x002F, 0x0042, 0x0031)
 LABELSST, LABEL, NUMBER, RK, MULRK, FORMULA, STRING, BOOLERR = (
     0x00FD, 0x0204, 0x0203, 0x027E, 0x00BD, 0x0006, 0x0207, 0x0205)
 
@@ -285,6 +285,8 @@ class Book:
         self.strings: List[str] = []
         codes: Dict[int, str] = dict(numfmt.BUILTIN)
         styles: List[int] = []
+        fonts_bold: List[bool] = []
+        style_fonts: List[int] = []
 
         records = _records(stream)
         first = next(records, None)
@@ -319,7 +321,11 @@ class Book:
                 number, count = struct.unpack_from("<HH", data, 0)
                 codes[number] = _short_string(data, 4, count)
             elif kind == XF and len(data) >= 4:
-                styles.append(struct.unpack_from("<H", data, 2)[0])
+                font, number = struct.unpack_from("<HH", data, 0)
+                styles.append(number)
+                style_fonts.append(font)
+            elif kind == FONT and len(data) >= 8:
+                fonts_bold.append(struct.unpack_from("<H", data, 6)[0] >= 700)
             elif kind == DATEMODE and len(data) >= 2:
                 self.date1904 = struct.unpack_from("<H", data, 0)[0] == 1
         if pending is not None:
@@ -331,6 +337,12 @@ class Book:
             if number not in made:
                 made[number] = numfmt.Format(codes.get(number, "General"))
             self.formats.append(made[number])
+        # Font number 4 is never written — a quirk kept from the first BIFF —
+        # so the fonts after it are one place further on than their numbers.
+        self.bold = []
+        for font in style_fonts:
+            at = font if font < 4 else font - 1
+            self.bold.append(0 <= at < len(fonts_bold) and fonts_bold[at])
 
     def _read_strings(self, parts: List[bytes]) -> None:
         pieces = _Pieces(parts)
@@ -364,14 +376,17 @@ class Book:
             grid.setdefault(row, {})[column] = value
 
         def number(row: int, column: int, xf: int, value: float) -> None:
-            put(row, column, self._number(value, xf, general, comma))
+            put(row, column, self._bolden(self._number(value, xf, general, comma), xf))
+
+        def text(row: int, column: int, xf: int, value: str) -> None:
+            put(row, column, self._bolden(value, xf))
 
         for kind, data, _ in records:
             if kind == EOF:
                 break
             if kind == LABELSST and len(data) >= 10:
-                row, column, _xf, at = struct.unpack_from("<HHHI", data, 0)
-                put(row, column, self.strings[at] if at < len(self.strings) else "")
+                row, column, xf, at = struct.unpack_from("<HHHI", data, 0)
+                text(row, column, xf, self.strings[at] if at < len(self.strings) else "")
             elif kind == NUMBER and len(data) >= 14:
                 row, column, xf = struct.unpack_from("<HHH", data, 0)
                 number(row, column, xf, struct.unpack_from("<d", data, 6)[0])
@@ -387,8 +402,8 @@ class Book:
                     column += 1
                     at += 6
             elif kind == LABEL and len(data) >= 9:
-                row, column, _xf, count = struct.unpack_from("<HHHH", data, 0)
-                put(row, column, _short_string(data, 8, count))
+                row, column, xf, count = struct.unpack_from("<HHHH", data, 0)
+                text(row, column, xf, _short_string(data, 8, count))
             elif kind == BOOLERR and len(data) >= 8:
                 row, column, _xf, value, is_error = struct.unpack_from("<HHHBB", data, 0)
                 if is_error:
@@ -431,6 +446,13 @@ class Book:
                 line[column] = value
             out.append(line)
         return out
+
+    def _bolden(self, cell, xf: int):
+        if cell is None or cell == "" or xf >= len(self.bold) or not self.bold[xf]:
+            return cell
+        if isinstance(cell, dict):
+            return cell if "r" in cell else dict(cell, r="strong")
+        return {"v": cell, "r": "strong"}
 
     def _number(self, value: float, xf: int, general, comma: bool):
         fmt = self.formats[xf] if xf < len(self.formats) else general

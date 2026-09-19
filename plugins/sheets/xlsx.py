@@ -32,6 +32,7 @@ import posixpath
 import zipfile
 from typing import Callable, Dict, List, Optional
 from xml.etree import ElementTree as ET
+from xml.parsers import expat
 
 import numfmt
 
@@ -97,7 +98,7 @@ class Workbook:
                 self._parts.append(target)
 
         self.strings = self._shared_strings()
-        self.formats = self._formats()
+        self.formats, self.bold = self._formats()
 
     def _open(self, name: str):
         real = self._names.get(name.lower())
@@ -151,13 +152,26 @@ class Workbook:
                     element.clear()
         return out
 
-    def _formats(self) -> List[numfmt.Format]:
-        """The number format of every cell style, by style number."""
+    def _formats(self):
+        """The number format of every cell style, by style number — and which
+        styles set their text in bold, which is how a sheet says "heading" or
+        "total" without a word for it."""
         root = self._xml("xl/styles.xml")
         if root is None:
-            return []
+            return [], []
         codes: Dict[int, str] = dict(numfmt.BUILTIN)
         styles: List[int] = []
+        fonts_bold: List[bool] = []
+        style_fonts: List[int] = []
+        for element in root.iter():
+            if _local(element.tag) == "fonts":
+                for font in element:
+                    bold = False
+                    for part in font:
+                        if _local(part.tag) == "b":
+                            bold = (part.get("val") or "1") not in ("0", "false")
+                    fonts_bold.append(bold)
+                break
         for element in root.iter():
             tag = _local(element.tag)
             if tag == "numFmt":
@@ -172,6 +186,10 @@ class Workbook:
                         styles.append(int(xf.get("numFmtId") or 0))
                     except ValueError:
                         styles.append(0)
+                    try:
+                        style_fonts.append(int(xf.get("fontId") or 0))
+                    except ValueError:
+                        style_fonts.append(0)
                 break
         made: Dict[int, numfmt.Format] = {}
         out = []
@@ -179,62 +197,165 @@ class Workbook:
             if number not in made:
                 made[number] = numfmt.Format(codes.get(number, "General"))
             out.append(made[number])
-        return out
+        bold = [0 <= f < len(fonts_bold) and fonts_bold[f] for f in style_fonts]
+        return out, bold
 
     def rows(self, index: int) -> List[list]:
         """Every row of sheet [index], as values. Gaps the file leaves out —
         rows nobody typed in, cells skipped over — come back empty, so a cell
         stands in the column its reference names."""
+        out: List[list] = []
+        self.fill(index, out)
+        return out
+
+    def fill(self, index: int, out: List[list],
+             stop: Optional[Callable[[], bool]] = None) -> None:
+        """Reads sheet [index] into [out], a row at a time as the file goes.
+
+        **Expat, not a tree.** ElementTree made an object of every `<c>` and
+        `<v>` and handed each one over twice; on a sheet of two million cells
+        that was seven seconds before anything could be shown. Expat calls
+        three functions and keeps nothing, and the rows are appended to [out]
+        as they are finished — so whoever holds the list can show the first
+        of them while the rest are still being read. [stop] is asked between
+        pieces of the file, for a reading nobody wants any more.
+        """
         part = self._open(self._parts[index])
         if part is None:
-            return []
+            return
         general = numfmt.Format("General")
         comma = self.language.split("-")[0] in numfmt.COMMA_LANGUAGES
-        out: List[list] = []
+        plain_styles = self._plain_styles()
+        max_rows = self.max_rows
+        strings = self.strings
+        cell_of = self._cell
+        bolden = self._bolden
+
+        # The parser's state, in locals the handlers close over.
         row: list = []
-        row_at = -1
-        with part:
-            ref = kind = style = None
-            value: Optional[str] = None
-            inline: List[str] = []
-            for event, element in ET.iterparse(part, events=("start", "end")):
-                tag = _local(element.tag)
-                if event == "start":
-                    if tag == "row":
-                        wanted = row_number(element.get("r") or "")
-                        row_at = wanted if wanted >= 0 else row_at + 1
-                        row = []
-                    elif tag == "c":
-                        ref = element.get("r")
-                        kind = element.get("t") or "n"
-                        style = element.get("s")
-                        value = None
-                        inline = []
-                    continue
-                if tag == "v":
-                    value = element.text
-                elif tag == "t" and kind == "inlineStr":
-                    inline.append(element.text or "")
-                elif tag == "c":
-                    column = column_index(ref) if ref else len(row)
-                    cell = self._cell(kind, value, inline, style, general, comma)
-                    if cell is not None and cell != "":
-                        while len(row) < column:
-                            row.append(None)
-                        if len(row) == column:
-                            row.append(cell)
+        state = {"row_at": -1, "ref": None, "kind": "n", "style": None,
+                 "text": False, "inline": False}
+        value_parts: List[str] = []
+        inline: List[str] = []
+        done = [False]
+
+        def start(name, attrs):
+            if ":" in name:
+                name = name.rsplit(":", 1)[1]
+            if name == "c":
+                state["ref"] = attrs.get("r")
+                state["kind"] = attrs.get("t") or "n"
+                state["style"] = attrs.get("s")
+                value_parts.clear()
+                inline.clear()
+            elif name == "v":
+                value_parts.clear()
+                state["text"] = True
+            elif name == "t" and state["kind"] == "inlineStr":
+                state["inline"] = True
+            elif name == "row":
+                wanted = row_number(attrs.get("r") or "")
+                state["row_at"] = wanted if wanted >= 0 else state["row_at"] + 1
+                row.clear()
+            elif name in ("rPh", "phoneticPr"):
+                state["inline"] = False
+
+        def end(name):
+            if ":" in name:
+                name = name.rsplit(":", 1)[1]
+            if name == "v":
+                state["text"] = False
+            elif name == "t":
+                state["inline"] = False
+            elif name == "c":
+                kind = state["kind"]
+                style = state["style"]
+                value = "".join(value_parts) if value_parts else None
+                # The common case first: a number with no format of its own.
+                if kind == "n" and value is not None and (style is None or style in plain_styles):
+                    try:
+                        number = float(value)
+                    except ValueError:
+                        cell = value
+                    else:
+                        if number.is_integer() and abs(number) < 1e15:
+                            cell = int(number)
+                        elif comma:
+                            cell = {"v": number, "t": numfmt.general(number, True)}
                         else:
-                            row[column] = cell
-                    element.clear()
-                elif tag == "row":
-                    if row:
-                        while len(out) < row_at:
-                            out.append([])
-                        out.append(row)
-                        if self.max_rows and len(out) >= self.max_rows:
-                            break
-                    element.clear()
-        return out
+                            cell = number
+                elif kind == "s" and value is not None:
+                    try:
+                        cell = strings[int(value)]
+                    except (ValueError, IndexError):
+                        cell = ""
+                    if style is not None:
+                        cell = bolden(cell, style)
+                else:
+                    cell = cell_of(kind, value, inline, style, general, comma)
+                    if cell is not None and cell != "" and style is not None:
+                        cell = bolden(cell, style)
+                if cell is None or cell == "":
+                    return
+                ref = state["ref"]
+                column = column_index(ref) if ref else len(row)
+                if len(row) < column:
+                    row.extend([None] * (column - len(row)))
+                if len(row) == column:
+                    row.append(cell)
+                else:
+                    row[column] = cell
+            elif name == "row":
+                if row:
+                    at = state["row_at"]
+                    if len(out) < at:
+                        out.extend([] for _ in range(at - len(out)))
+                    out.append(list(row))
+                    if max_rows and len(out) >= max_rows:
+                        done[0] = True
+
+        def text(data):
+            if state["text"]:
+                value_parts.append(data)
+            elif state["inline"]:
+                inline.append(data)
+
+        parser = expat.ParserCreate()
+        parser.buffer_text = True
+        parser.StartElementHandler = start
+        parser.EndElementHandler = end
+        parser.CharacterDataHandler = text
+        with part:
+            while not done[0]:
+                if stop is not None and stop():
+                    return
+                piece = part.read(1 << 18)
+                if not piece:
+                    parser.Parse(b"", True)
+                    break
+                parser.Parse(piece, False)
+        if max_rows and len(out) > max_rows:
+            del out[max_rows:]
+
+    def _plain_styles(self) -> set:
+        """Style numbers whose number format is General and whose text is not
+        bold — where a number is only a number."""
+        return {
+            str(i) for i, fmt in enumerate(self.formats)
+            if fmt.code == "General" and not (i < len(self.bold) and self.bold[i])
+        }
+
+    def _bolden(self, cell, style):
+        try:
+            if not self.bold[int(style)]:
+                return cell
+        except (ValueError, IndexError):
+            return cell
+        if isinstance(cell, dict):
+            if "r" not in cell:
+                cell = dict(cell, r="strong")
+            return cell
+        return {"v": cell, "r": "strong"}
 
     def _cell(self, kind, value, inline, style, general, comma):
         if kind == "inlineStr":

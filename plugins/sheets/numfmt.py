@@ -37,6 +37,7 @@ from __future__ import annotations
 import datetime as dt
 import re
 from decimal import ROUND_HALF_UP, Decimal
+from fractions import Fraction
 from typing import Optional
 
 #: Built-in formats, by number, as every Excel writes them without saying.
@@ -79,26 +80,28 @@ _BRACKET = re.compile(r"\[[^\]]*\]")
 _ESCAPED = re.compile(r"\\.")
 
 
-class Format:
-    """A number format, read once and applied to every cell that names it."""
+class _Section:
+    """One of a format's parts. A format is up to four, split on `;`: for
+    numbers above nought, below it, nought itself, and text."""
 
-    __slots__ = ("code", "date", "time", "percent", "decimals", "grouped",
-                 "prefix", "suffix", "text", "scientific", "elapsed")
+    __slots__ = ("date", "time", "percent", "decimals", "grouped", "prefix",
+                 "suffix", "text", "scientific", "elapsed", "general",
+                 "fraction", "whole", "denominator", "places", "literal")
 
     def __init__(self, code: str):
-        self.code = code or "General"
-        first = self.code.split(";")[0]
         # What is left once literal text and bracketed switches are taken out
         # is what the number itself is drawn with.
-        bare = _ESCAPED.sub("", _QUOTED.sub("", first))
+        bare = _ESCAPED.sub("", _QUOTED.sub("", code))
         self.elapsed = bool(re.search(r"\[[hms]+\]", bare, re.I))
         bare = _BRACKET.sub("", bare)
         lower = bare.lower()
+        self.general = lower.strip() == "general" or (
+            lower.strip() == "" and not _QUOTED.search(code) and "\\" not in code)
         self.text = bare.strip() == "@"
         self.date = any(c in lower for c in "dy") or (
             "m" in lower and not any(c in lower for c in "hs"))
         self.time = any(c in lower for c in "hs") or self.elapsed
-        if lower.strip() in ("general", ""):
+        if self.general or self.text:
             self.date = self.time = False
         # "m" between hours and seconds is minutes, and a format of minutes
         # alone is a time — but "mmm-yy" is a month.
@@ -106,17 +109,107 @@ class Format:
             self.date = False
         self.percent = "%" in bare
         self.scientific = "e+" in lower or "e-" in lower
+        # A fraction: `# ?/?`, `# ??/??`, `?/16`. A whole part when there is a
+        # placeholder, a space, then the fraction.
+        found = re.search(r"([#0?]+\s+)?([#0?]+)\s*/\s*([#0?]+|\d+)", bare)
+        self.fraction = found is not None and not (self.date or self.time)
+        self.whole = bool(found and found.group(1))
+        self.denominator = 0
+        self.places = 1
+        if found:
+            under = found.group(3)
+            if under.isdigit():
+                self.denominator = int(under)
+            else:
+                self.places = len(under)
         digits = bare.split(".", 1)
         self.decimals = (
             len(re.findall(r"[0#?]", digits[1].split("e")[0].split("E")[0]))
             if len(digits) == 2 else 0
         )
         self.grouped = bool(re.search(r"[0#?],[0#?]", bare))
-        self.prefix, self.suffix = _around(first)
+        self.prefix, self.suffix = _around(code)
+        # A part with no number in it at all — `"—"` for nought — writes its
+        # text and nothing else.
+        self.literal = (not self.general and not self.text
+                        and not (self.date or self.time)
+                        and not re.search(r"[0#?]", bare))
+        if self.literal:
+            self.prefix, self.suffix = _literal(code), ""
+        if self.fraction:
+            # The denominator's digits are part of the number, not text after
+            # it: `?/16` would otherwise write "/16" twice.
+            whole = re.search(r"([#0?]+\s+)?[#0?]+\s*/\s*(?:[#0?]+|\d+)", code)
+            if whole:
+                self.prefix = _literal(code[: whole.start()]).lstrip()
+                self.suffix = _literal(code[whole.end():]).rstrip()
+
+class Format:
+    """A number format, read once and applied to every cell that names it."""
+
+    __slots__ = ("code", "sections")
+
+    def __init__(self, code: str):
+        self.code = code or "General"
+        parts = _split_sections(self.code)
+        self.sections = [_Section(part) for part in parts[:3]] or [_Section("")]
+
+    @property
+    def first(self) -> _Section:
+        return self.sections[0]
 
     @property
     def is_date(self) -> bool:
-        return self.date or self.time
+        return self.first.date or self.first.time
+
+    @property
+    def date(self) -> bool:
+        return self.first.date
+
+    @property
+    def time(self) -> bool:
+        return self.first.time
+
+    @property
+    def elapsed(self) -> bool:
+        return self.first.elapsed
+
+    @property
+    def text(self) -> bool:
+        return self.first.text
+
+    def section(self, value: float) -> tuple:
+        """The part that writes [value], and whether it writes the minus
+        itself — the second part of `#,##0;(#,##0)` puts brackets where the
+        minus would be, and a minus as well would be two ways of saying it."""
+        count = len(self.sections)
+        if value < 0 and count >= 2:
+            return self.sections[1], True
+        if value == 0 and count >= 3:
+            return self.sections[2], True
+        return self.sections[0], False
+
+
+def _split_sections(code: str) -> list:
+    """`;` outside quotes and brackets separates a format's parts."""
+    parts = []
+    current = []
+    quoted = False
+    depth = 0
+    for c in code:
+        if c == '"':
+            quoted = not quoted
+        elif not quoted and c == "[":
+            depth += 1
+        elif not quoted and c == "]":
+            depth = max(0, depth - 1)
+        if c == ";" and not quoted and depth == 0:
+            parts.append("".join(current))
+            current = []
+            continue
+        current.append(c)
+    parts.append("".join(current))
+    return parts
 
 
 def _around(section: str) -> tuple:
@@ -216,14 +309,46 @@ def show(value: float, fmt: Format, language: str = "en",
             if fmt.date:
                 return moment.strftime("%Y-%m-%d")
             return moment.strftime("%H:%M:%S") if moment.second else moment.strftime("%H:%M")
-    if fmt.percent:
-        return _number(value * 100, fmt.decimals, fmt.grouped, comma) + "%"
-    if fmt.scientific:
-        text = "%.*E" % (fmt.decimals, value)
-        return text.replace(".", ",") if comma else text
-    if fmt.code == "General" or fmt.text:
-        return general(value, comma)
-    return fmt.prefix + _number(value, fmt.decimals, fmt.grouped, comma) + fmt.suffix
+    part, signed = fmt.section(value)
+    if signed:
+        value = abs(value)
+    if part.literal:
+        return part.prefix
+    if part.general or part.text or part.date or part.time:
+        text = general(abs(value) if signed else value, comma)
+        return part.prefix + text + part.suffix if signed else text
+    if part.fraction:
+        return part.prefix + _fraction(value, part, comma) + part.suffix
+    if part.percent:
+        return part.prefix + _number(value * 100, part.decimals, part.grouped, comma) \
+            + "%" + part.suffix
+    if part.scientific:
+        text = "%.*E" % (part.decimals, value)
+        return part.prefix + (text.replace(".", ",") if comma else text) + part.suffix
+    return part.prefix + _number(value, part.decimals, part.grouped, comma) + part.suffix
+
+
+def _fraction(value: float, part: "_Section", comma: bool) -> str:
+    """`1 3/4` — the nearest fraction with a denominator of as many digits as
+    the format allows, or the one it names."""
+    sign = "-" if value < 0 else ""
+    value = abs(value)
+    whole = int(value) if part.whole else 0
+    rest = value - whole
+    if part.denominator:
+        top = round(rest * part.denominator)
+        bottom = part.denominator
+    else:
+        near = Fraction(rest).limit_denominator(10 ** part.places - 1)
+        top, bottom = near.numerator, near.denominator
+    if top == bottom and part.whole:
+        whole += 1
+        top = 0
+    if top == 0:
+        return sign + str(whole) if part.whole else sign + "0"
+    if part.whole and whole:
+        return "%s%d %d/%d" % (sign, whole, top, bottom)
+    return "%s%d/%d" % (sign, top, bottom)
 
 
 def general(value: float, comma: bool = False) -> str:

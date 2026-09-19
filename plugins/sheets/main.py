@@ -33,6 +33,7 @@ from __future__ import annotations
 import io
 import os
 import sys
+import threading
 import time
 import zipfile
 
@@ -115,7 +116,8 @@ def _open(raw: bytes, language: str, max_rows: int):
             book = xlsx.Workbook(raw, language, max_rows)
             if not book.titles:
                 raise ValueError(plugin.tr("This workbook holds no sheets."))
-            return book.titles, lambda i: _sheet(book.titles[i], book.rows(i))
+            return book.titles, lambda i: _reading(
+                book.titles[i], lambda rows, stop: book.fill(i, rows, stop))
         raise ValueError(plugin.tr(
             "This zip is not a spreadsheet. Shift+F3 shows what is inside it."))
 
@@ -129,6 +131,43 @@ def _open(raw: bytes, language: str, max_rows: int):
             "This file is a web page saved with a spreadsheet's name, which "
             "is how many programs export “Excel”. Shift+F3 shows it as text."))
     raise ValueError(plugin.tr("This is not a spreadsheet this viewer can read."))
+
+
+#: Rows read before a sheet is shown; the rest follow while it is looked at.
+FIRST_ROWS = 300
+
+
+def _reading(title: str, fill) -> Sheet:
+    """A sheet shown as soon as its first screen is read.
+
+    A large .xlsx takes seconds to read to the end, and there is no reason to
+    look at a blank window for them: the reading goes on in a thread, the
+    host is handed the rows so far and told the count is still growing, and
+    asks again until it is not.
+    """
+    rows: list = []
+    stop = threading.Event()
+    finished = threading.Event()
+    failure: list = []
+
+    def work() -> None:
+        try:
+            fill(rows, stop.is_set)
+        except Exception as problem:  # noqa: BLE001 - said, not raised
+            failure.append(problem)
+        finally:
+            finished.set()
+
+    threading.Thread(target=work, name="read " + title, daemon=True).start()
+    waited = time.time() + 20
+    while not finished.is_set() and len(rows) < FIRST_ROWS and time.time() < waited:
+        finished.wait(0.02)
+    if failure and not rows:
+        raise ValueError(plugin.tr("This sheet could not be read: {error}",
+                                   {"error": failure[0]}))
+    if finished.is_set() and not rows:
+        return Sheet(title, [], message=plugin.tr("This sheet is empty."))
+    return Sheet(title, rows, done=finished.is_set, cancel=stop.set)
 
 
 def _sheet(title: str, rows: list) -> Sheet:
