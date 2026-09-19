@@ -42,7 +42,9 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from xverb import Plugin, Sheet, error  # noqa: E402
 
 import ods  # noqa: E402
+import textbooks  # noqa: E402
 import xls  # noqa: E402
+import xlsb  # noqa: E402
 import xlsx  # noqa: E402
 
 plugin = Plugin("org.xverb.sheets", "Spreadsheets")
@@ -52,7 +54,7 @@ plugin = Plugin("org.xverb.sheets", "Spreadsheets")
 #: not a smaller workbook but an unreadable one.
 MAX_BYTES = 256 << 20
 
-EXTENSIONS = ["xlsx", "xlsm", "xltx", "xltm", "xls", "xlt", "ods", "ots"]
+EXTENSIONS = ["xlsx", "xlsm", "xltx", "xltm", "xlsb", "xls", "xlt", "ods", "ots"]
 
 
 @plugin.viewer(
@@ -99,38 +101,49 @@ def workbook(url: str) -> dict:
 
 def _open(raw: bytes, language: str, max_rows: int):
     """The sheet names, and how to read any one of them."""
-    head = raw[:4096]
+    head = raw[:8192]
     if raw[:8] == xls.MAGIC:
         book = xls.Book(raw, language, max_rows)
         return book.titles, lambda i: _sheet(book.titles[i], book.rows(i))
 
     if raw[:2] == b"PK":
         archive = zipfile.ZipFile(io.BytesIO(raw))
+        names = archive.namelist()
         if ods.is_spreadsheet(archive):
             sheets = ods.read(raw, language, max_rows)
             if not sheets:
                 raise ValueError(plugin.tr("This spreadsheet holds no sheets."))
             return [name for name, _ in sheets], \
                 lambda i: _sheet(sheets[i][0], sheets[i][1])
-        if xlsx.is_workbook(archive.namelist()):
-            book = xlsx.Workbook(raw, language, max_rows)
-            if not book.titles:
-                raise ValueError(plugin.tr("This workbook holds no sheets."))
-            return book.titles, lambda i: _reading(
-                book.titles[i], lambda rows, stop: book.fill(i, rows, stop))
+        for kind in (xlsx, xlsb):
+            if kind.is_workbook(names):
+                book = kind.Workbook(raw, language, max_rows)
+                if not book.titles:
+                    raise ValueError(plugin.tr("This workbook holds no sheets."))
+                return book.titles, lambda i, book=book: _reading(
+                    book.titles[i], lambda rows, stop: book.fill(i, rows, stop))
         raise ValueError(plugin.tr(
             "This zip is not a spreadsheet. Shift+F3 shows what is inside it."))
 
-    lower = head.lower()
-    if b"urn:schemas-microsoft-com:office:spreadsheet" in lower:
-        raise ValueError(plugin.tr(
-            "This is an Excel 2003 XML spreadsheet, which this viewer does not "
-            "read yet. Shift+F3 shows it as text."))
-    if b"<html" in lower or b"<table" in lower:
-        raise ValueError(plugin.tr(
-            "This file is a web page saved with a spreadsheet's name, which "
-            "is how many programs export “Excel”. Shift+F3 shows it as text."))
+    # Two things called .xls that are text: Excel 2003's XML, and a web page —
+    # which is how a great many programs export "Excel". Asked in that order,
+    # because the XML's sheets are <Table> elements.
+    if textbooks.looks_like_spreadsheetml(head):
+        return _given(textbooks.read_spreadsheetml(raw, language), max_rows)
+    if textbooks.looks_like_html(head):
+        return _given(textbooks.read_html(raw), max_rows)
     raise ValueError(plugin.tr("This is not a spreadsheet this viewer can read."))
+
+
+def _given(sheets, max_rows: int):
+    if not sheets:
+        raise ValueError(plugin.tr("This file holds no table."))
+    sheets = [
+        (name or plugin.tr("Table {number}", {"number": at + 1}),
+         rows[:max_rows] if max_rows else rows)
+        for at, (name, rows) in enumerate(sheets)
+    ]
+    return [name for name, _ in sheets], lambda i: _sheet(sheets[i][0], sheets[i][1])
 
 
 #: Rows read before a sheet is shown; the rest follow while it is looked at.

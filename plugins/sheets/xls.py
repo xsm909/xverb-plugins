@@ -150,8 +150,8 @@ class Compound:
 BOF, EOF, CONTINUE = 0x0809, 0x000A, 0x003C
 BOUNDSHEET, SST, FORMAT, XF, DATEMODE, FILEPASS, CODEPAGE, FONT = (
     0x0085, 0x00FC, 0x041E, 0x00E0, 0x0022, 0x002F, 0x0042, 0x0031)
-LABELSST, LABEL, NUMBER, RK, MULRK, FORMULA, STRING, BOOLERR = (
-    0x00FD, 0x0204, 0x0203, 0x027E, 0x00BD, 0x0006, 0x0207, 0x0205)
+LABELSST, LABEL, NUMBER, RK, MULRK, FORMULA, STRING, BOOLERR, RSTRING = (
+    0x00FD, 0x0204, 0x0203, 0x027E, 0x00BD, 0x0006, 0x0207, 0x0205, 0x00D6)
 
 _ERRORS = {0x00: "#NULL!", 0x07: "#DIV/0!", 0x0F: "#VALUE!", 0x17: "#REF!",
            0x1D: "#NAME?", 0x24: "#NUM!", 0x2A: "#N/A"}
@@ -268,6 +268,20 @@ def _short_string(data: bytes, at: int, count: int) -> str:
     return data[at + 1:at + 1 + count].decode("latin-1")
 
 
+def _codepage(number: int) -> str:
+    """The Python name of a Windows code page, as a CODEPAGE record gives it."""
+    named = {367: "ascii", 1200: "utf-16-le", 10000: "mac_roman",
+             32768: "mac_roman", 32769: "cp1252"}
+    if number in named:
+        return named[number]
+    try:
+        name = "cp%d" % number
+        "".encode(name)
+        return name
+    except LookupError:
+        return "cp1252"
+
+
 class Book:
     """A BIFF8 workbook: its sheets by name, and how to read each one."""
 
@@ -293,10 +307,15 @@ class Book:
         if first is None or first[0] != BOF:
             raise XlsError("The workbook stream does not start where a workbook does.")
         version = struct.unpack_from("<H", first[1], 0)[0] if len(first[1]) >= 2 else 0
-        if version != 0x0600:
+        # Excel 95 wrote BIFF5 (and 5.0 and 7.0 both say 0x0500): the same
+        # records, but text in one byte a character in the code page the file
+        # names, and no shared string table — every text cell carries its own.
+        if version not in (0x0500, 0x0600):
             raise XlsError(
-                "This is an Excel 95 or older workbook, which this reader does "
-                "not read. Excel 97 and later can save it again as .xls or .xlsx.")
+                "This is an Excel 4 or older workbook, which this reader does "
+                "not read. A newer Excel can save it again as .xls or .xlsx.")
+        self.biff = 8 if version == 0x0600 else 5
+        self.codepage = "cp1252"
 
         pending: Optional[List[bytes]] = None
         for kind, data, _ in records:
@@ -310,16 +329,22 @@ class Book:
                 break
             if kind == FILEPASS:
                 raise XlsError("This workbook is protected with a password.")
-            if kind == BOUNDSHEET and len(data) >= 8:
+            if kind == CODEPAGE and len(data) >= 2:
+                self.codepage = _codepage(struct.unpack_from("<H", data, 0)[0])
+            elif kind == BOUNDSHEET and len(data) >= 8:
                 start, _visible, sheet_kind, count = struct.unpack_from("<IBBB", data, 0)
                 if sheet_kind == 0:  # a worksheet, not a chart or a macro sheet
                     self._starts.append(start)
-                    self.titles.append(_short_string(data, 7, count))
+                    self.titles.append(self._string(data, 7, count))
             elif kind == SST:
                 pending = [data[8:]]
-            elif kind == FORMAT and len(data) >= 5:
-                number, count = struct.unpack_from("<HH", data, 0)
-                codes[number] = _short_string(data, 4, count)
+            elif kind == FORMAT and len(data) >= 3:
+                if self.biff == 8 and len(data) >= 5:
+                    number, count = struct.unpack_from("<HH", data, 0)
+                    codes[number] = _short_string(data, 4, count)
+                else:
+                    number, count = struct.unpack_from("<HB", data, 0)
+                    codes[number] = self._string(data, 3, count)
             elif kind == XF and len(data) >= 4:
                 font, number = struct.unpack_from("<HH", data, 0)
                 styles.append(number)
@@ -401,9 +426,9 @@ class Book:
                     number(row, column, xf, _rk(value))
                     column += 1
                     at += 6
-            elif kind == LABEL and len(data) >= 9:
+            elif kind in (LABEL, RSTRING) and len(data) >= 9:
                 row, column, xf, count = struct.unpack_from("<HHHH", data, 0)
-                text(row, column, xf, _short_string(data, 8, count))
+                text(row, column, xf, self._string(data, 8, count))
             elif kind == BOOLERR and len(data) >= 8:
                 row, column, _xf, value, is_error = struct.unpack_from("<HHHBB", data, 0)
                 if is_error:
@@ -430,7 +455,7 @@ class Book:
                     number(row, column, xf, struct.unpack("<d", result)[0])
             elif kind == STRING and last_formula is not None and len(data) >= 3:
                 count = struct.unpack_from("<H", data, 0)[0]
-                put(last_formula[0], last_formula[1], _short_string(data, 2, count))
+                put(last_formula[0], last_formula[1], self._string(data, 2, count))
                 last_formula = None
 
         if not grid:
@@ -446,6 +471,14 @@ class Book:
                 line[column] = value
             out.append(line)
         return out
+
+    def _string(self, data: bytes, at: int, count: int) -> str:
+        """Text with its length already read: in BIFF8 a flag byte and then
+        one or two bytes a character; in BIFF5 the bytes, in the file's code
+        page."""
+        if self.biff == 8:
+            return _short_string(data, at, count)
+        return data[at:at + count].decode(self.codepage, "replace")
 
     def _bolden(self, cell, xf: int):
         if cell is None or cell == "" or xf >= len(self.bold) or not self.bold[xf]:

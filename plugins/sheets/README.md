@@ -8,7 +8,10 @@ the others (Ctrl+PgUp and Ctrl+PgDn do the same).
 | Format | Extensions | Read by |
 | --- | --- | --- |
 | Office Open XML | `.xlsx`, `.xlsm`, `.xltx`, `.xltm` | `xlsx.py` |
-| Excel 97–2003 (BIFF8) | `.xls`, `.xlt` | `xls.py` |
+| Excel binary workbook (BIFF12) | `.xlsb` | `xlsb.py` |
+| Excel 97–2003 (BIFF8) and Excel 95 (BIFF5) | `.xls`, `.xlt` | `xls.py` |
+| Excel 2003 XML (SpreadsheetML) | `.xls` | `textbooks.py` |
+| A web page saved as `.xls` — how 1C, banks and many others export "Excel" | `.xls` | `textbooks.py` |
 | OpenDocument | `.ods`, `.ots` | `ods.py` |
 
 Everything is the standard library; nothing third-party is shipped.
@@ -23,22 +26,25 @@ Everything is the standard library; nothing third-party is shipped.
 - **The value a formula came to** when the file was saved. Formulas are not
   worked out again.
 - **Errors** (`#DIV/0!`, `#N/A`) as errors, in the palette's own colour for one.
+- **Bold** text as the role `strong` — how a sheet marks a heading or a total.
+- **Number formats with their parts**: a negative in brackets, nought as a
+  dash, fractions (`# ?/?`).
 - Whether the first row is a header is the host's guess, overruled with one
   press.
 
 ## What is not
 
-Charts, pictures, comments, merged cells, colours and fonts, hidden rows, and
-anything a macro does. Excel 95 and older, password-protected workbooks, the
-Excel 2003 XML format and web pages saved with an `.xls` name say what they are
-rather than failing obscurely. Nothing is ever written.
+Charts, pictures, colours and fonts beyond bold, and anything a macro does.
+Excel 4 and older and password-protected workbooks say what they are rather
+than failing obscurely. Nothing is ever written.
 
 ## How it is sent
 
 Only the rows on screen cross the pipe to the host: 256 when a sheet opens, and
-more as it is scrolled. A sheet is read whole, into the plugin's memory, when
-it is first turned to; a workbook of many sheets keeps only the one being
-looked at. **Rows to read at most** in the plugin's settings caps a sheet for
+more as it is scrolled. An `.xlsx` or `.xlsb` sheet is shown as soon as its
+first 300 rows are read and the rest follow in a thread — two hundred thousand
+rows open in a fifth of a second — while the host watches the count grow. A
+workbook of many sheets keeps only the one being looked at. **Rows to read at most** in the plugin's settings caps a sheet for
 a machine that would rather not hold a million rows.
 
 ## Checking it

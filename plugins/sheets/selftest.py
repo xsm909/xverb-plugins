@@ -43,6 +43,8 @@ sys.path.insert(0, HERE)
 sys.path.insert(0, os.path.join(HERE, "..", "..", "..", "xverb-dev", "assets", "python"))
 
 import numfmt  # noqa: E402
+import textbooks  # noqa: E402
+import xlsb  # noqa: E402
 import ods  # noqa: E402
 import xls  # noqa: E402
 import xlsx  # noqa: E402
@@ -151,6 +153,168 @@ def made_xlsx() -> bytes:
     return out.getvalue()
 
 
+def compound(name: str, stream: bytes) -> bytes:
+    """A compound document holding one stream, built by hand: a header, one
+    FAT sector, one directory sector, then the stream — padded past the
+    4 096 bytes under which it would go in the mini stream instead."""
+    stream = stream + b"\0" * max(0, 4096 - len(stream))
+    sectors = (len(stream) + 511) // 512
+    stream = stream.ljust(sectors * 512, b"\0")
+    fat = [0xFFFFFFFD, 0xFFFFFFFE] + [3 + i for i in range(sectors - 1)] + [0xFFFFFFFE]
+    fat += [0xFFFFFFFF] * (128 - len(fat))
+    header = bytearray(512)
+    header[0:8] = xls.MAGIC
+    struct.pack_into("<HHHHH", header, 0x18, 0x3E, 3, 0xFFFE, 9, 6)
+    struct.pack_into("<IIII", header, 0x2C, 1, 1, 0, 4096)
+    struct.pack_into("<IIII", header, 0x3C, 0xFFFFFFFE, 0, 0xFFFFFFFE, 0)
+    struct.pack_into("<109I", header, 0x4C, 0, *([0xFFFFFFFF] * 108))
+    directory = bytearray(512)
+
+    def entry(at: int, title: str, kind: int, start: int, size: int) -> None:
+        raw = (title + "\0").encode("utf-16-le")
+        directory[at * 128:at * 128 + len(raw)] = raw
+        struct.pack_into("<HB", directory, at * 128 + 0x40, len(raw), kind)
+        struct.pack_into("<III", directory, at * 128 + 0x44, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF)
+        struct.pack_into("<II", directory, at * 128 + 0x74, start, size)
+
+    entry(0, "Root Entry", 5, 0xFFFFFFFE, 0)
+    entry(1, name, 2, 2, len(stream))
+    return bytes(header) + struct.pack("<128I", *fat) + bytes(directory) + stream
+
+
+def excel95() -> None:
+    """An Excel 95 workbook: BIFF5, text in Windows-1251, a sheet with a
+    Cyrillic name, a bold heading."""
+    def record(kind: int, data: bytes) -> bytes:
+        return struct.pack("<HH", kind, len(data)) + data
+
+    def text(value: str) -> bytes:
+        raw = value.encode("cp1251")
+        return bytes([len(raw)]) + raw
+
+    title = "Лист1"
+    globals_ = [
+        record(xls.BOF, struct.pack("<HH", 0x0500, 0x0005) + b"\0" * 4),
+        record(xls.CODEPAGE, struct.pack("<H", 1251)),
+        record(xls.FONT, struct.pack("<HHHH", 200, 0, 0, 400) + b"\0" * 6 + text("Arial")),
+        record(xls.FONT, struct.pack("<HHHH", 200, 0, 0, 700) + b"\0" * 6 + text("Arial")),
+        record(xls.XF, struct.pack("<HH", 0, 0) + b"\0" * 12),
+        record(xls.XF, struct.pack("<HH", 1, 0) + b"\0" * 12),
+    ]
+    sheet_name = text(title)
+    size = sum(len(r) for r in globals_) + 4 + 6 + len(sheet_name) + 4
+    globals_ += [
+        record(xls.BOUNDSHEET, struct.pack("<IBB", size, 0, 0) + sheet_name),
+        record(xls.EOF, b""),
+    ]
+    label = "Привет".encode("cp1251")
+    sheet = [
+        record(xls.BOF, struct.pack("<HH", 0x0500, 0x0010) + b"\0" * 4),
+        record(xls.LABEL, struct.pack("<HHHH", 0, 0, 1, len(label)) + label),
+        record(xls.NUMBER, struct.pack("<HHHd", 1, 0, 0, 3.5)),
+        record(xls.EOF, b""),
+    ]
+    stream = b"".join(globals_) + b"".join(sheet)
+    book = xls.Book(compound("Book", stream), "ru")
+    check("excel 95: the sheet's name", book.titles, [title])
+    check("excel 95: the cells", book.rows(0), [
+        [{"v": "Привет", "r": "strong"}],
+        [{"v": 3.5, "t": "3,5"}],
+    ])
+
+
+def binary_workbook() -> None:
+    """An .xlsb built record by record: a sheet name, a shared string, a
+    bold style, a date format, and the kinds of cell a sheet holds."""
+    def number(value: int, most: int) -> bytes:
+        out = bytearray()
+        for _ in range(most):
+            byte = value & 0x7F
+            value >>= 7
+            out.append(byte | (0x80 if value else 0))
+            if not value:
+                break
+        return bytes(out)
+
+    def record(kind: int, body: bytes = b"") -> bytes:
+        return number(kind, 2) + number(len(body), 4) + body
+
+    def wide(text: str) -> bytes:
+        return struct.pack("<I", len(text)) + text.encode("utf-16-le")
+
+    def cell(column: int, style: int) -> bytes:
+        return struct.pack("<II", column, style)
+
+    workbook = record(xlsb.WB_PROP, struct.pack("<I", 0)) + record(
+        xlsb.BUNDLE_SH, struct.pack("<II", 0, 1) + wide("rId1") + wide("Отчёт"))
+    strings = record(xlsb.SST_ITEM, b"\0" + wide("Итого"))
+    styles = (record(xlsb.FMT, struct.pack("<H", 164) + wide("dd.mm.yyyy"))
+              + record(xlsb.BEGIN_FONTS)
+              + record(xlsb.FONT, struct.pack("<HHH", 220, 0, 400))
+              + record(xlsb.FONT, struct.pack("<HHH", 220, 0, 700))
+              + record(xlsb.BEGIN_CELL_XFS)
+              + record(xlsb.XF, struct.pack("<HHH", 0xFFFF, 0, 0) + b"\0" * 10)
+              + record(xlsb.XF, struct.pack("<HHH", 0xFFFF, 0, 1) + b"\0" * 10)
+              + record(xlsb.XF, struct.pack("<HHH", 0xFFFF, 164, 0) + b"\0" * 10)
+              + record(xlsb.END_CELL_XFS))
+    sheet = (record(xlsb.ROW, struct.pack("<I", 0) + b"\0" * 13)
+             + record(xlsb.ISST, cell(0, 1) + struct.pack("<I", 0))
+             + record(xlsb.RK, cell(1, 0) + struct.pack("<I", (1234 << 2) | 3))
+             + record(xlsb.ROW, struct.pack("<I", 2) + b"\0" * 13)
+             + record(xlsb.REAL, cell(0, 2) + struct.pack("<d", 46266.0))
+             + record(xlsb.ST, cell(2, 0) + wide("сам"))
+             + record(xlsb.BOOL, cell(3, 0) + b"\1")
+             + record(xlsb.ERROR, cell(4, 0) + b"\x07"))
+    out = io.BytesIO()
+    with zipfile.ZipFile(out, "w") as z:
+        z.writestr("xl/workbook.bin", workbook)
+        z.writestr("xl/_rels/workbook.bin.rels",
+                   '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+                   '<Relationship Id="rId1" Target="worksheets/sheet1.bin"/></Relationships>')
+        z.writestr("xl/sharedStrings.bin", strings)
+        z.writestr("xl/styles.bin", styles)
+        z.writestr("xl/worksheets/sheet1.bin", sheet)
+    book = xlsb.Workbook(out.getvalue(), "ru")
+    check("xlsb titles", book.titles, ["Отчёт"])
+    check("xlsb rows", book.rows(0), [
+        [{"v": "Итого", "r": "strong"}, {"v": 12.34, "t": "12,34"}],
+        [],
+        [{"v": "2026-09-01", "t": "2026-09-01"}, None, "сам", True,
+         {"v": "#DIV/0!", "t": "#DIV/0!", "r": "error"}],
+    ])
+
+
+def text_workbooks() -> None:
+    page = ('<html><head><meta charset="windows-1251"></head><body><table>'
+            '<caption>Остатки</caption><tr><th>Товар</th><th colspan=2>Цена</th></tr>'
+            '<tr><td>Коврик&nbsp;большой</td><td>1 250,50</td><td>руб</td></tr>'
+            '<tr><td><b>Итого</b></td><td>7</td></tr></table></body></html>').encode("cp1251")
+    check("a web page with an .xls name", textbooks.read_html(page), [("Остатки", [
+        [{"v": "Товар", "r": "strong"}, {"v": "Цена", "r": "strong"}],
+        ["Коврик большой", {"v": 1250.5, "t": "1 250,50"}, "руб"],
+        [{"v": "Итого", "r": "strong"}, 7],
+    ])])
+    xml = ('<?xml version="1.0"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" '
+           'xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"><Styles>'
+           '<Style ss:ID="b"><Font ss:Bold="1"/></Style>'
+           '<Style ss:ID="m"><NumberFormat ss:Format="#,##0.00"/></Style></Styles>'
+           '<Worksheet ss:Name="Лист"><Table><Row><Cell ss:StyleID="b"><Data ss:Type="String">Имя</Data>'
+           '</Cell><Cell ss:MergeAcross="1"><Data ss:Type="String">Сумма</Data></Cell>'
+           '<Cell><Data ss:Type="String">Дата</Data></Cell></Row><Row><Cell><Data ss:Type="String">'
+           'A &amp; B</Data></Cell><Cell ss:Index="3" ss:StyleID="m"><Data ss:Type="Number">1234.5'
+           '</Data></Cell><Cell><Data ss:Type="DateTime">2026-09-01T00:00:00.000</Data></Cell></Row>'
+           '<Row ss:Index="4"><Cell><Data ss:Type="Boolean">1</Data></Cell></Row></Table>'
+           '</Worksheet></Workbook>').encode("utf-8")
+    check("excel 2003 xml is recognised", textbooks.looks_like_spreadsheetml(xml), True)
+    check("excel 2003 xml", textbooks.read_spreadsheetml(xml, "ru"), [("Лист", [
+        [{"v": "Имя", "r": "strong"}, "Сумма", None, "Дата"],
+        ["A & B", None, {"v": 1234.5, "t": "1\u202f234,50"},
+         {"v": "2026-09-01", "t": "2026-09-01"}],
+        [],
+        [True],
+    ])])
+
+
 def workbooks() -> None:
     book = xlsx.Workbook(made_xlsx(), "ru")
     check("xlsx titles", book.titles, ["Цены", "Пусто"])
@@ -219,6 +383,9 @@ if __name__ == "__main__":
     rk_numbers()
     string_table()
     workbooks()
+    excel95()
+    binary_workbook()
+    text_workbooks()
     if len(sys.argv) > 1:
         corpus(sys.argv[1])
     print("%d failure(s)" % failures)
