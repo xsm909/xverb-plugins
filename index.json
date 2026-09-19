@@ -247,7 +247,7 @@
     "folder": "sheets",
     "id": "org.xverb.sheets",
     "name": "Spreadsheets",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "description": "Excel and OpenDocument workbooks read as sheets: every page of the workbook, dates and numbers as the file formats them, and only the rows on screen sent across. .xlsx, .xlsm, .xls from Excel 97 on and .ods, all read with the standard library and nothing third-party. For looking \u2014 a workbook is edited in a spreadsheet program.",
     "runtime": "python",
     "apiVersion": 1,
@@ -259,7 +259,7 @@
     "pythonMin": "3.12",
     "category": "Viewers",
     "icon": "view",
-    "updated": null
+    "updated": "2026-09-19T09:31:59+02:00"
   },
   {
     "folder": "smb",

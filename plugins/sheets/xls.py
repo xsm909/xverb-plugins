@@ -437,7 +437,9 @@ class Book:
         plain = int(value) if value.is_integer() and abs(value) < 1e15 else value
         shown = numfmt.show(value, fmt, self.language, self.date1904)
         if fmt.is_date:
-            return {"v": plain, "t": shown}
+            # A date's value is its text, not its day number: copied out as
+            # JSON, 46266 would mean nothing to anybody.
+            return {"v": shown, "t": shown}
         if shown == str(plain) or (not comma and shown == repr(plain)):
             return plain
         return {"v": plain, "t": shown}

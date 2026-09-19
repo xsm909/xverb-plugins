@@ -267,7 +267,9 @@ class Workbook:
         shown = numfmt.show(number, fmt, self.language, self.date1904)
         plain = int(number) if number.is_integer() and abs(number) < 1e15 else number
         if fmt.is_date:
-            return {"v": plain, "t": shown}
+            # A date's value is its text, not its day number: copied out as
+            # JSON, 46266 would mean nothing to anybody.
+            return {"v": shown, "t": shown}
         if shown == str(plain) or (not comma and shown == repr(plain)):
             return plain
         return {"v": plain, "t": shown}
