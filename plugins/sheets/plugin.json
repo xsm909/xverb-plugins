@@ -1,0 +1,48 @@
+{
+  "id": "org.xverb.sheets",
+  "name": "Spreadsheets",
+  "version": "0.1.0",
+  "description": "Excel and OpenDocument workbooks read as sheets: every page of the workbook, dates and numbers as the file formats them, and only the rows on screen sent across. .xlsx, .xlsm, .xls from Excel 97 on and .ods, all read with the standard library and nothing third-party. For looking — a workbook is edited in a spreadsheet program.",
+  "category": "Viewers",
+  "author": "xverb",
+  "homepage": "https://github.com/xsm909/xverb-plugins",
+  "apiVersion": 1,
+  "runtime": "python",
+  "entry": "main.py",
+  "pythonMin": "3.12",
+  "icon": "view",
+  "platforms": [
+    "windows",
+    "macos",
+    "linux"
+  ],
+  "viewers": [
+    {
+      "id": "sheets.workbook",
+      "title": "Workbook",
+      "extensions": [
+        "xlsx",
+        "xlsm",
+        "xltx",
+        "xltm",
+        "xls",
+        "xlt",
+        "ods",
+        "ots"
+      ],
+      "priority": 40,
+      "produces": "spreadsheet"
+    }
+  ],
+  "settings": [
+    {
+      "key": "maxRows",
+      "label": "Rows to read at most",
+      "type": "integer",
+      "default": 0,
+      "minimum": 0,
+      "maximum": 1048576,
+      "note": "Nought reads every row. A sheet is read whole when it is opened, into the plugin's memory, and a number here is for the workbook of a million rows on a machine that would rather not hold it."
+    }
+  ]
+}
