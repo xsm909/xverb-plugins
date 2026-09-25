@@ -1,0 +1,88 @@
+{
+  "id": "org.xverb.sftp",
+  "name": "SFTP",
+  "version": "0.1.0",
+  "description": "Browse and transfer over SFTP, through the machine's own ssh: your keys, the agent and ~/.ssh/config work as they do in a terminal. Set up connections from Drives and connections.",
+  "category": "Transports",
+  "author": "xverb",
+  "homepage": "https://github.com/xsm909/xverb-plugins",
+  "apiVersion": 1,
+  "runtime": "python",
+  "entry": "main.py",
+  "pythonMin": "3.12",
+  "icon": "cloud",
+  "platforms": ["windows", "macos", "linux"],
+  "schemes": ["sftp"],
+  "connections": [
+    {
+      "id": "sftp.session",
+      "title": "SFTP",
+      "scheme": "sftp",
+      "storeFile": "sftp_connect.ini",
+      "fields": [
+        {
+          "key": "host",
+          "label": "Host name",
+          "type": "text",
+          "required": true,
+          "hint": "server.example.com, an alias from ~/.ssh/config, or a whole sftp:// URL"
+        },
+        {
+          "key": "port",
+          "label": "Port",
+          "type": "integer",
+          "hint": "22"
+        },
+        {
+          "key": "user",
+          "label": "User name",
+          "type": "text",
+          "note": "Leave empty for the one ssh would use."
+        },
+        {
+          "key": "password",
+          "label": "Password",
+          "type": "password",
+          "note": "Leave empty to sign in with a key or the agent."
+        },
+        {
+          "key": "keyFile",
+          "label": "Private key",
+          "type": "text",
+          "hint": "~/.ssh/id_ed25519",
+          "note": "Only if it is not one ssh offers already. A passphrase goes in Password."
+        },
+        {
+          "key": "remoteDir",
+          "label": "Remote directory",
+          "type": "remotePath",
+          "hint": "~ for the home folder, or /var/www"
+        }
+      ]
+    }
+  ],
+  "commands": [
+    {
+      "id": "sftp.disconnect",
+      "title": "Disconnect all SFTP sessions",
+      "description": "Ends every ssh process this plugin started."
+    }
+  ],
+  "settings": [
+    {
+      "key": "idleTimeout",
+      "label": "Close a session idle for longer than",
+      "type": "integer",
+      "default": 300,
+      "hint": "300",
+      "note": "Seconds. A closed session is opened again by the next thing that needs it."
+    },
+    {
+      "key": "sshPath",
+      "label": "ssh program",
+      "type": "text",
+      "hint": "found on PATH",
+      "note": "Only for an ssh that is not the one on PATH."
+    }
+  ]
+}

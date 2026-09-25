@@ -1,0 +1,22 @@
+{
+  "SFTP": "SFTP",
+  "Browse and transfer over SFTP, through the machine's own ssh: your keys, the agent and ~/.ssh/config work as they do in a terminal. Set up connections from Drives and connections.": "Обзор и передача файлов по SFTP через системный ssh: ваши ключи, агент и ~/.ssh/config работают так же, как в терминале. Подключения настраиваются в «Дисках и подключениях».",
+  "Host name": "Имя хоста",
+  "server.example.com, an alias from ~/.ssh/config, or a whole sftp:// URL": "server.example.com, псевдоним из ~/.ssh/config или целый адрес sftp://",
+  "Port": "Порт",
+  "User name": "Имя пользователя",
+  "Leave empty for the one ssh would use.": "Оставьте пустым — будет тот, кого выбрал бы ssh.",
+  "Password": "Пароль",
+  "Leave empty to sign in with a key or the agent.": "Оставьте пустым, чтобы войти по ключу или через агент.",
+  "Private key": "Закрытый ключ",
+  "Only if it is not one ssh offers already. A passphrase goes in Password.": "Только если ssh не предлагает его сам. Фраза-пароль ключа вводится в поле «Пароль».",
+  "Remote directory": "Папка на сервере",
+  "~ for the home folder, or /var/www": "~ — домашняя папка, или /var/www",
+  "Disconnect all SFTP sessions": "Закрыть все сеансы SFTP",
+  "Ends every ssh process this plugin started.": "Завершает все процессы ssh, запущенные этим плагином.",
+  "Close a session idle for longer than": "Закрывать сеанс, простаивающий дольше",
+  "Seconds. A closed session is opened again by the next thing that needs it.": "Секунды. Закрытый сеанс откроется снова, как только понадобится.",
+  "ssh program": "Программа ssh",
+  "found on PATH": "из PATH",
+  "Only for an ssh that is not the one on PATH.": "Только если нужен другой ssh, не тот, что в PATH."
+}
