@@ -198,14 +198,23 @@ def holds(archive: zipfile.ZipFile, inner: str, choice: str = AUTO) -> bool:
     return False
 
 
+def open_member(archive: zipfile.ZipFile, info: zipfile.ZipInfo):
+    """A member as a stream to read from the start, held open by the caller
+    between reads — see :func:`read_at` for what reopening it costs."""
+    return archive.open(info)
+
+
 def read_at(
     archive: zipfile.ZipFile, info: zipfile.ZipInfo, offset: int, length: int
 ) -> bytes:
     """``length`` bytes of a member from ``offset``.
 
     Deflate has no random access, so an offset is reached by decompressing what
-    comes before it and throwing it away. That is what the format costs; the
-    reads the panel and the viewers do are sequential, so it is paid once.
+    comes before it and throwing it away. **Called once per piece, that is paid
+    once per piece**: a copy reads a member 256 KB at a time, and reopening it
+    for each meant decompressing everything before every piece — 20 seconds
+    for a tenth of ten files. The file system keeps the stream open instead
+    (see `_ArchiveFileSystem._streamed` in main.py); this is for one-off reads.
     """
     with archive.open(info) as member:
         if offset:

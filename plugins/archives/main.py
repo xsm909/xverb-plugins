@@ -41,8 +41,11 @@ reads to plugins and not writes, so an archive can only be *changed* where the
 platform can open it, which means on this machine. Anywhere else says so plainly
 rather than half working.
 
-**Nothing is held open.** Every write closes the archive when the file ends, and
-every read closes it when the panel has moved on. An archive with no central
+**Nothing written is held open.** Every write closes the archive when the file
+ends. Reading holds more: the archive while the panel is in it, and a member
+being copied out while the copy is reading it, so that each 256 KB piece
+carries on from the last instead of decompressing the member from its start
+again. An archive with no central
 directory at the end of it is not an archive, and the way to get one is to hold
 it open across an application that then stops.
 """
@@ -53,7 +56,8 @@ import os
 import tarfile
 import time
 import zipfile
-from typing import Dict, List, Optional, Tuple
+from collections import OrderedDict
+from typing import Callable, Dict, List, Optional, Tuple
 from urllib.parse import parse_qs, unquote, urlparse
 
 import hostfile
@@ -79,6 +83,15 @@ IDLE = 120.0
 #: How many archives can be open at once. Small on purpose: each one holds a
 #: buffered reader, and a panel is looking at one archive at a time.
 KEEP = 4
+
+#: How many members can be held open part-read at once — a copy reads one at
+#: a time, a viewer may read another beside it.
+KEEP_STREAMS = 4
+
+#: How long an open archive is trusted without asking whether it changed. A
+#: copy reads a piece every few milliseconds, and asking the host for the
+#: archive's size before each one was a round trip per 256 KB.
+TRUST = 1.0
 
 
 def _choice() -> str:
@@ -110,7 +123,7 @@ def _split(url: str) -> Tuple[str, str]:
 class _Open:
     """One archive open for reading, and what it was when it was opened."""
 
-    __slots__ = ("archive", "handle", "size", "modified", "touched")
+    __slots__ = ("archive", "handle", "size", "modified", "touched", "checked")
 
     def __init__(self, archive, handle, size, modified):
         self.archive = archive
@@ -118,12 +131,24 @@ class _Open:
         self.size = size
         self.modified = modified
         self.touched = time.monotonic()
+        self.checked = self.touched
 
     def close(self) -> None:
         try:
             self.archive.close()
         finally:
             self.handle.close()
+
+
+class _Stream:
+    """One member open for reading, and how far into it the reading is."""
+
+    __slots__ = ("opened", "stream", "position")
+
+    def __init__(self, opened: "_Open", stream):
+        self.opened = opened
+        self.stream = stream
+        self.position = 0
 
 
 class _ArchiveFileSystem(FileSystem):
@@ -136,6 +161,7 @@ class _ArchiveFileSystem(FileSystem):
 
     def __init__(self):
         self._open: Dict[str, _Open] = {}
+        self._streams: "OrderedDict[Tuple[str, str], _Stream]" = OrderedDict()
 
     def _load(self, handle, archive_url: str):
         """The format's own reader over an open, seekable file."""
@@ -149,20 +175,30 @@ class _ArchiveFileSystem(FileSystem):
         refresh. Checked because an archive is a file somebody else can change
         under us, and a listing of what it used to be is worse than a slow one.
         """
-        size, modified = self._measure(archive_url)
         cached = self._open.get(archive_url)
         now = time.monotonic()
+        if cached is not None and now - cached.checked < TRUST:
+            cached.touched = now
+            return cached
+        size, modified = self._measure(archive_url)
         if cached is not None:
             if (
                 cached.size == size
                 and cached.modified == modified
                 and now - cached.touched < IDLE
             ):
-                cached.touched = now
+                cached.touched = cached.checked = now
                 return cached
             self._forget(archive_url)
 
-        handle = hostfile.opened(plugin, archive_url, size)
+        # **On this machine, the disk itself.** Through the host every byte of
+        # the archive crossed a pipe in base64, 256 KB a call; anywhere else —
+        # FTP, another plugin's file system — the host is the only way to it.
+        path = local_path(archive_url)
+        if path and os.path.isfile(path):
+            handle = open(path, "rb", buffering=1 << 18)
+        else:
+            handle = hostfile.opened(plugin, archive_url, size)
         try:
             archive = self._load(handle, archive_url)
         except RpcError:
@@ -180,7 +216,14 @@ class _ArchiveFileSystem(FileSystem):
         return opened
 
     def _measure(self, archive_url: str) -> Tuple[int, Optional[int]]:
-        """The archive's size and date, as the host sees them right now."""
+        """The archive's size and date right now: from the disk when it is on
+        this machine, from the host when it is anywhere else."""
+        path = local_path(archive_url)
+        if path and os.path.isfile(path):
+            info = os.stat(path)
+            if info.st_size <= 0:
+                raise RpcError("%s is empty" % archive_url)
+            return info.st_size, info.st_mtime_ns
         stat = plugin.stat(archive_url)
         if not stat:
             raise RpcError("%s is not there" % archive_url)
@@ -190,9 +233,68 @@ class _ArchiveFileSystem(FileSystem):
         return size, stat.get("modified")
 
     def _forget(self, archive_url: str) -> None:
+        for key in [k for k in self._streams if k[0] == archive_url]:
+            self._drop_stream(key)
         cached = self._open.pop(archive_url, None)
         if cached is not None:
             cached.close()
+
+    # -- a member being read ----------------------------------------------
+
+    def _streamed(self, archive_url: str, inner: str, opened: _Open, offset: int,
+                  length: int, open_member: Callable[[], object]) -> bytes:
+        """[length] bytes of a member from [offset], carrying on from where
+        the last read of it stopped.
+
+        A copy reads a member front to back, 256 KB a call. Kept open, each
+        call is the next 256 KB of one decompression; reopened, each call was
+        a decompression of everything before it — quadratic, and a copy of ten
+        files out of a ZIP was a tenth done after 20 seconds. Forward is
+        skipped to; backward, or an archive that changed, opens it again.
+        """
+        key = (archive_url, inner)
+        held = self._streams.get(key)
+        if held is None or held.opened is not opened or held.position > offset:
+            if held is not None:
+                self._drop_stream(key)
+            stream = open_member()
+            if stream is None:
+                return b""
+            held = _Stream(opened, stream)
+            self._streams[key] = held
+            while len(self._streams) > KEEP_STREAMS:
+                self._drop_stream(next(iter(self._streams)))
+        self._streams.move_to_end(key)
+
+        while held.position < offset:
+            skipped = held.stream.read(min(offset - held.position, 1 << 20))
+            if not skipped:
+                self._drop_stream(key)
+                return b""
+            held.position += len(skipped)
+
+        parts = []
+        wanted = length
+        while wanted > 0:
+            piece = held.stream.read(wanted)
+            if not piece:
+                break
+            parts.append(piece)
+            wanted -= len(piece)
+        data = b"".join(parts)
+        held.position += len(data)
+        if len(data) < length:
+            # The end: nothing more will be asked of it.
+            self._drop_stream(key)
+        return data
+
+    def _drop_stream(self, key: Tuple[str, str]) -> None:
+        held = self._streams.pop(key, None)
+        if held is not None:
+            try:
+                held.stream.close()
+            except Exception:  # noqa: BLE001 - closing is best effort
+                pass
 
     def _forget_all(self) -> None:
         for archive_url in list(self._open):
@@ -336,11 +438,17 @@ class ZipFileSystem(_ArchiveFileSystem):
     def read(self, url: str, offset: int, length: int) -> bytes:
         archive_url, inner = _split(url)
         opened = self._reader(archive_url)
-        info = zipbox.find(opened.archive, inner, _choice())
-        if info is None:
-            raise RpcError("%s is not in the archive" % inner)
+
+        # Found only when it is opened: a member being copied is looked up
+        # once, not once for every piece of it.
+        def open_it():
+            info = zipbox.find(opened.archive, inner, _choice())
+            if info is None:
+                raise RpcError("%s is not in the archive" % inner)
+            return zipbox.open_member(opened.archive, info)
+
         try:
-            return zipbox.read_at(opened.archive, info, offset, length)
+            return self._streamed(archive_url, inner, opened, offset, length, open_it)
         except RuntimeError as failure:
             # What zipfile raises for an encrypted member with no password.
             raise RpcError("%s cannot be read: %s" % (inner, failure))
@@ -578,12 +686,14 @@ class TarFileSystem(_ArchiveFileSystem):
     def read(self, url: str, offset: int, length: int) -> bytes:
         archive_url, inner = _split(url)
         opened = self._reader(archive_url)
-        member = tarbox.find(opened.archive, inner, _choice())
-        if member is None:
-            raise RpcError("%s is not in the archive" % inner)
-        return tarbox.read_at(
-            opened.archive, member, offset, length, fileobj=opened.handle
-        )
+
+        def open_it():
+            member = tarbox.find(opened.archive, inner, _choice())
+            if member is None:
+                raise RpcError("%s is not in the archive" % inner)
+            return tarbox.open_member(opened.archive, member, fileobj=opened.handle)
+
+        return self._streamed(archive_url, inner, opened, offset, length, open_it)
 
     # -- writing ----------------------------------------------------------
 

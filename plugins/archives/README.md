@@ -52,7 +52,9 @@ compression setting says.
 
 Bytes are read through the host, which resolves whatever the archive is sitting
 on. **An archive on an FTP server opens exactly like one on the disk**, and this
-plugin never learns the difference.
+plugin never learns the difference. An archive that *is* on this machine's disk
+is read from the disk directly: through the host every byte crossed a pipe in
+base64, 256 KB a call.
 
 Writing has no such road: the host serves reads to plugins and not writes, so an
 archive can only be *changed* where the platform can open it — on this machine.
@@ -96,6 +98,15 @@ follow, and they are the whole difference:
 so that is what is read, and then each member by its own offset. Listing a 4 GB
 archive reads a few hundred kilobytes. The first version of this plugin pulled
 the whole file into memory and capped itself at 256 MB; that is gone.
+
+**A member being copied out is held open.** The application reads a file
+256 KB at a time, and deflate — like gzip, bzip2 and xz around a tar — has no
+random access: until 1.4.0 each piece reopened the member and decompressed
+everything before it again, so a copy took time growing with the square of the
+file's size, and ten files out of a ZIP were a tenth done after 20 seconds.
+Now each piece carries on from the last: ten 8 MB files in 0.8 seconds, a
+240 MB member in 2.8, measured through the host's own reads. A read that goes
+backwards, or an archive that changed, opens the member again.
 
 **Deleting and renaming rewrite the archive.** The directory is at the end and
 an entry cannot be cut out of the middle of the file, so there is no cheaper

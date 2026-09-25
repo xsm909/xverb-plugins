@@ -191,9 +191,12 @@ class Archive:
     lets the panel do anything with it at all.
     """
 
-    def __init__(self, tar: Optional[tarfile.TarFile], solo: Optional[Listing]):
+    def __init__(self, tar: Optional[tarfile.TarFile], solo: Optional[Listing],
+                 codec: Optional[str] = None):
         self.tar = tar
         self.solo = solo
+        #: Which of OPENERS decompresses a single compressed file, once found.
+        self.codec = codec
 
     @property
     def is_tar(self) -> bool:
@@ -226,7 +229,7 @@ def opened(fileobj, name: str = "") -> Archive:
                 size = _drain(stream)
         except Exception:
             continue
-        return Archive(None, Listing(inner_name_of(name), False, size, None))
+        return Archive(None, Listing(inner_name_of(name), False, size, None), how)
 
     raise tarfile.ReadError("not a tar archive and not a compressed file")
 
@@ -310,6 +313,20 @@ def holds(archive: Archive, inner: str, choice: str = AUTO) -> bool:
         if name.startswith(prefix):
             return True
     return False
+
+
+def open_member(archive: Archive, member, fileobj=None):
+    """A member as a stream to read from the start, or None for one with
+    nothing of its own — a directory, a link.
+
+    Held open by the caller between reads: a compressed tar or a `.gz` has no
+    random access, and opening it again for every piece of a copy means
+    decompressing everything before that piece each time.
+    """
+    if not archive.is_tar:
+        fileobj.seek(0)
+        return OPENERS[archive.codec or "gz"](fileobj)
+    return archive.tar.extractfile(member)
 
 
 def read_at(archive: Archive, member, offset: int, length: int, fileobj=None) -> bytes:

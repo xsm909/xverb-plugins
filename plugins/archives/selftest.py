@@ -583,6 +583,50 @@ def tar_dangerous(folder: str):
     handle.close()
 
 
+def streaming(folder):
+    """A member opened once and read in pieces, as a copy reads it, is the
+    member — in a ZIP, a tar.gz and a lone .gz. This is what the file system
+    keeps open between reads instead of reopening the member for each piece."""
+    body = bytes(range(256)) * 4096 + os.urandom(100_000)  # just over 1 MB
+
+    def in_pieces(stream, size=65536):
+        out = bytearray()
+        while True:
+            piece = stream.read(size)
+            if not piece:
+                return bytes(out)
+            out += piece
+
+    path = os.path.join(folder, "stream.zip")
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as box:
+        box.writestr("a/big.bin", body)
+    with open(path, "rb") as handle:
+        archive = zipbox.opened(handle)
+        info = zipbox.find(archive, "a/big.bin")
+        with zipbox.open_member(archive, info) as stream:
+            check("a ZIP member read in pieces is the member", in_pieces(stream), body)
+
+    path = os.path.join(folder, "stream.tar.gz")
+    with tarfile.open(path, "w:gz") as tar:
+        entry = tarfile.TarInfo("a/big.bin")
+        entry.size = len(body)
+        tar.addfile(entry, io.BytesIO(body))
+    with open(path, "rb") as handle:
+        archive = tarbox.opened(handle, path)
+        member = tarbox.find(archive, "a/big.bin")
+        with tarbox.open_member(archive, member, fileobj=handle) as stream:
+            check("a tar.gz member read in pieces is the member", in_pieces(stream), body)
+
+    path = os.path.join(folder, "lone.bin.gz")
+    with gzip.open(path, "wb") as out:
+        out.write(body)
+    with open(path, "rb") as handle:
+        archive = tarbox.opened(handle, path)
+        check("a lone .gz knows its codec", archive.codec, "gz")
+        with tarbox.open_member(archive, None, fileobj=handle) as stream:
+            check("a lone .gz read in pieces is the file", in_pieces(stream), body)
+
+
 def main():
     folder = tempfile.mkdtemp(prefix="xverb-archives-")
     try:
@@ -598,6 +642,7 @@ def main():
         tar_writing(folder)
         tar_changing(folder)
         tar_dangerous(folder)
+        streaming(folder)
     finally:
         shutil.rmtree(folder, ignore_errors=True)
 
