@@ -1,0 +1,24 @@
+{
+  "id": "org.xverb.prompts",
+  "name": "AI prompts",
+  "version": "0.1.0",
+  "description": "How a generated picture was made: the prompt, the negative prompt, the seed, the sampler, the model and the LoRAs, read out of what AUTOMATIC1111, Forge, ComfyUI, NovelAI, InvokeAI, Fooocus, SwarmUI, Draw Things and Midjourney write into a PNG, a JPEG or a WebP. Shift+F3 on the picture.",
+  "category": "Viewers",
+  "author": "xverb",
+  "homepage": "https://github.com/xsm909/xverb-plugins",
+  "apiVersion": 1,
+  "runtime": "python",
+  "entry": "main.py",
+  "pythonMin": "3.12",
+  "icon": "code",
+  "platforms": ["windows", "macos", "linux"],
+  "viewers": [
+    {
+      "id": "prompts.read",
+      "title": "Prompt",
+      "extensions": ["png", "jpg", "jpeg", "jpe", "jfif", "webp"],
+      "priority": 1,
+      "produces": "prompt"
+    }
+  ]
+}
