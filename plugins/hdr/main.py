@@ -45,8 +45,11 @@ from typing import Dict, List, Optional, Tuple
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from xverb import Plugin, error, fact, fact_group, facts, image  # noqa: E402
+from xverb.fs import local_path  # noqa: E402
 
 import exr  # noqa: E402
+import macos  # noqa: E402
+import native  # noqa: E402
 import pfm  # noqa: E402
 import png  # noqa: E402
 import pool  # noqa: E402
@@ -59,9 +62,6 @@ plugin = Plugin("org.xverb.hdr", "HDR and EXR")
 #: generous and still finite.
 MAX_BYTES = 768 << 20
 
-#: How much is worth sending on the chance the machine's decoder reads it.
-MAX_HANDOVER = 64 << 20
-
 #: The head of a file, for the describer: an EXR header with a hundred
 #: attributes is a few kilobytes, a Radiance header a line or ten.
 HEAD_BYTES = 1 << 20
@@ -70,6 +70,18 @@ EXTENSIONS = ["exr", "hdr", "pfm"]
 
 #: Seconds of expected work past which an EXR is decompressed on every core.
 PARALLEL_FROM = 1.0
+
+
+def _read(url: str) -> bytes:
+    """The whole file. From the disk directly when it is on the disk: a 75 MB
+    HDRI through the host is 300 calls of base64, most of a second of the two
+    and a half it took to open; anywhere else — an archive, a server — the
+    host is the only way to it."""
+    path = local_path(url)
+    if path and os.path.isfile(path) and os.path.getsize(path) <= MAX_BYTES:
+        with open(path, "rb") as f:
+            return f.read()
+    return plugin.read_file(url, max_bytes=MAX_BYTES)
 
 
 def _exposure() -> float:
@@ -154,10 +166,14 @@ def draw(extension: str, raw: bytes, step: int = 1) -> Drawn:
         _version, parts, _at = exr.read_header(raw)
         index, layer, names, data = choose(parts)
         part = parts[index]
-        # The pool only when it pays: starting it is a fraction of a second,
-        # and a small ZIP file is done before the workers would be.
-        spread = pool.decode if exr.cost(part, step) > PARALLEL_FROM else None
-        picture = exr.read(raw, part, names, step, spread)
+        picture = _by_the_system(raw, parts, layer, names, step)
+        if picture is None:
+            picture = _by_the_library(raw, parts, index, names, step)
+        if picture is None:
+            # The pool only when it pays: starting it is a fraction of a
+            # second, and a small ZIP file is done before the workers would be.
+            spread = pool.decode if exr.cost(part, step) > PARALLEL_FROM else None
+            picture = exr.read(raw, part, names, step, spread)
         channels, pixels, stretched = tone.render(
             picture.planes, picture.types, names, exposure, view, data)
         notes = []
@@ -199,6 +215,71 @@ def draw(extension: str, raw: bytes, step: int = 1) -> Drawn:
     raise exr.ExrError("This viewer does not read a .%s" % extension)
 
 
+def system_can(parts: List[exr.Part], layer: str, names: List[str]) -> bool:
+    """Whether the machine's decoder is asked: one part, and the picture is
+    the plain R, G and B that every EXR reader agrees on. A layer chosen from
+    a multilayer render is this plugin's to find."""
+    return (sys.platform == "darwin" and len(parts) == 1 and layer == ""
+            and names == ["R", "G", "B"])
+
+
+def _by_the_system(raw: bytes, parts, layer: str, names, step: int):
+    """The picture decoded by the machine, in the shape `exr.read` gives, or
+    None — and then the plugin reads it itself."""
+    if not system_can(parts, layer, names):
+        return None
+    found = macos.decode(raw)
+    part = parts[0]
+    if found is None or (found[0], found[1]) != (part.width, part.height):
+        return None
+    width, height, kind, planes = found
+    if step > 1:
+        planes = {n: _thinned(p, width, height, 2 if kind == exr.HALF else 4, step)
+                  for n, p in planes.items()}
+        width, height = (width + step - 1) // step, (height + step - 1) // step
+    picture = exr.Image(width, height)
+    picture.planes = planes
+    picture.types = {n: kind for n in planes}
+    return picture
+
+
+def library_can(part: exr.Part, names: List[str]) -> bool:
+    """Whether the compiled decoder is asked: it is here, and the part is one
+    it reads — not DWA, not deep, and nothing subsampled among the channels."""
+    if not native.available() or part.deep or part.compression in (exr.DWAA, exr.DWAB):
+        return False
+    wanted = [c for c in part.channels if c.name in names]
+    return len(wanted) == len(names) and all(c.xs == 1 and c.ys == 1 for c in wanted)
+
+
+def _by_the_library(raw: bytes, parts, index: int, names, step: int):
+    part = parts[index]
+    if not library_can(part, names):
+        return None
+    planes = native.decode(raw, index, names, part.width, part.height)
+    if planes is None:
+        plugin.log("The compiled decoder refused this file (%s); reading it here."
+                   % native.last_error)
+        return None
+    width, height = part.width, part.height
+    if step > 1:
+        planes = {n: _thinned(p, width, height, 4, step) for n, p in planes.items()}
+        width, height = (width + step - 1) // step, (height + step - 1) // step
+    picture = exr.Image(width, height)
+    picture.planes = planes
+    picture.types = {n: exr.FLOAT for n in planes}
+    return picture
+
+
+def _thinned(plane: bytes, width: int, height: int, size: int, step: int) -> bytes:
+    from array import array
+    code = "H" if size == 2 else "I"
+    out = array(code)
+    for y in range(0, height, step):
+        out.extend(array(code, plane[y * width * size:(y + 1) * width * size])[::step])
+    return out.tobytes()
+
+
 FAILURES = (exr.ExrError, rgbe.RgbeError, pfm.PfmError)
 
 
@@ -225,16 +306,11 @@ def answer(extension: str, raw: bytes) -> dict:
 def _instead(extension: str, raw: bytes, reason: str) -> dict:
     """Something other than nothing, where there is something.
 
-    **The machine first, on the machine that can.** macOS reads EXR through
-    ImageIO — DWAA and DWAB included, which this reader does not — so the file
-    is handed over there rather than refused. **Then the file's own preview**,
-    a small eight-bit copy some writers put in the header. And only then the
-    sentence saying why.
+    **The file's own preview**, a small eight-bit copy some writers put in the
+    header, and only then the sentence saying why. The machine's decoder is
+    not handed the file here: on macOS it was already asked, and a file it
+    refused would only be refused again by the host, which uses the same one.
     """
-    if extension == "exr" and sys.platform == "darwin" and len(raw) <= MAX_HANDOVER:
-        content = image(raw, mime_type="image/x-exr")
-        content["detail"] = "%s — shown by this machine's own decoder instead." % reason
-        return content
     if extension == "exr":
         try:
             _v, parts, _a = exr.read_header(raw, offsets=False)
@@ -269,7 +345,7 @@ def small_copy(url: str, pixels: int) -> Optional[bytes]:
     if extension not in EXTENSIONS:
         return None
     try:
-        raw = plugin.read_file(url, max_bytes=MAX_BYTES)
+        raw = _read(url)
         size = _size_of(extension, raw)
         if size is None:
             return None
@@ -277,7 +353,9 @@ def small_copy(url: str, pixels: int) -> Optional[bytes]:
         if extension == "exr":
             _v, parts, _a = exr.read_header(raw)
             index, _layer, _names, _data = choose(parts)
-            expected = exr.cost(parts[index], step)
+            _i, layer, names, _d = choose(parts)
+            fast = system_can(parts, layer, names) or library_can(parts[index], names)
+            expected = 0.5 if fast else exr.cost(parts[index], step)
             if expected > PARALLEL_FROM:
                 # Half the workers, not all: on a machine with efficiency
                 # cores seven workers were measured at 3.9 times one.
@@ -319,7 +397,7 @@ def picture(url: str) -> dict:
     started = time.time()
     extension = url.rsplit(".", 1)[-1].lower()
     try:
-        raw = plugin.read_file(url, max_bytes=MAX_BYTES)
+        raw = _read(url)
     except Exception as failure:  # noqa: BLE001
         return error("The file could not be read: %s" % failure)
     content = answer(extension, raw)

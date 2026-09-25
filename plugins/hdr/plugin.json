@@ -1,7 +1,7 @@
 {
   "id": "org.xverb.hdr",
   "name": "HDR and EXR",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Pictures that hold light: OpenEXR renders and textures, Radiance .hdr environment maps and PFM, shown at the exposure and with the view you choose. Multilayer renders open on their beauty pass, and About lists every layer, the compression and what the renderer wrote about itself.",
   "category": "Viewers",
   "author": "xverb",

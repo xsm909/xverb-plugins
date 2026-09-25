@@ -21,8 +21,8 @@
 number of channels in half, float or uint — and the compressions a render or a
 texture is actually saved with: none, RLE, ZIPS, ZIP, PIZ, PXR24, B44 and B44A.
 DWAA and DWAB are not: they are a JPEG-like transform with a Huffman stage and
-a zip stage of their own, and the machine's own decoder is asked instead where
-there is one (macOS reads them through ImageIO).
+a zip stage of their own. (macOS's ImageIO does not read them either —
+measured on the fixtures, 2026-09-25.)
 
 **What comes back is channels, not a picture.** Each channel is its samples in
 the file's own bytes, row after row — half as two bytes, float and uint as

@@ -27,9 +27,9 @@ viewer shows it.
 ## What is not read
 
 **DWAA and DWAB** — a JPEG-like transform with Huffman and zip stages of its
-own. On macOS the file goes to the system's decoder, which reads them; the page
-says so. Elsewhere the small preview some EXR writers put in the header is
-shown if there is one, and otherwise a sentence says which compression it was.
+own. macOS's ImageIO refuses them too, measured on the fixtures. The small
+preview some EXR writers put in the header is shown if there is one, and
+otherwise a sentence says which compression it was.
 Deep images, which have many samples per pixel and no single picture, are
 refused the same way. A subsampled channel (the luminance-chroma layout) is
 refused rather than drawn wrongly.
@@ -51,6 +51,16 @@ cores:
 | PIZ, float RGBA, 1920 × 1080, every pixel noise | 10 s | 3.1 s |
 | a Poly Haven HDRI, 4096 × 2048 float RGB in PIZ, 75 MB | 26 s | 7.8 s, 8.6 s through the host |
 
+**On a Mac the system decodes it.** ImageIO is the OpenEXR library in C++,
+and `ctypes` reaches it with nothing shipped: that HDRI opens in 1.6 seconds
+through the host, 0.3 of them decoding, and its thumbnail takes half a second.
+A file on the disk is read from it directly, not in base64 through the host. The samples are
+taken as the file stores them, before any drawing, and the picture is byte
+for byte the one this reader makes — the self-test holds that. Exposure, the
+view and the choice of layer stay the plugin's. A file of several parts or a
+multilayer render, where ImageIO would pick the layer, and anything it
+refuses are read by the plugin as everywhere else.
+
 PIZ is the slow one because its Huffman codes and its wavelet have to be
 worked one value at a time; seven workers came to 3.9 times one here, which
 is what four fast cores and four slow ones give.
@@ -61,6 +71,28 @@ from the header first — within a few percent on the files above, and high
 rather than low — and a file over five seconds, counting half the workers,
 gets no thumbnail at once rather than none after eight. On macOS the system
 reads EXR thumbnails itself and this is never asked.
+
+## The compiled decoder, on Windows and Linux
+
+Those machines have no EXR decoder of their own, so the plugin carries one:
+[tinyexr](https://github.com/syoyo/tinyexr) (BSD 3-clause, with miniz, MIT),
+compiled for `windows-x64`, `linux-x64` and `linux-arm64` under `native/`,
+about 0.7 MB each, loaded with `ctypes`. Its sources are in `native/src`
+beside the one-function wrapper `xvexr.cc`, and `native/build.sh` rebuilds all
+three from a Mac with zig (`brew install zig`). Linux needs glibc 2.17 or
+later; the Windows library needs nothing but the system's C runtime.
+
+The plugin still reads the header and chooses the part and the channels; the
+library decodes that part on its threads and hands back float planes, and
+exposure and the view come after, as on every path. It reads every
+compression this reader does, multi-part and tiled files included; DWAA and
+DWAB it refuses too. No library for the machine, one that will not load, or a
+file it refuses: the plugin reads the file itself, on every core.
+
+Measured with the same library built for this Mac, the 4K HDRI opens in 1.5
+seconds and a 1080p frame of float noise decodes in 0.1. The self-test holds
+it to this reader sample for sample on every fixture and on a mipmapped tiled
+file; `XVERB_HDR_NATIVE` names a library to check instead of the shipped one.
 
 ## Checking it
 

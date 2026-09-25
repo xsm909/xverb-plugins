@@ -214,6 +214,55 @@ def run_pfm() -> None:
     check("and opens as a picture", content.get("kind") == "image")
 
 
+def run_system() -> None:
+    """On a Mac, the system's decoder must give the samples this reader gives."""
+    import macos
+    if sys.platform != "darwin":
+        print("      (not a Mac: the system decoder is not checked)")
+        return
+    for name in ("rgba_16_zip.exr", "rgba_32_piz.exr", "rgba_16_pxr24.exr", "rgba_16_b44.exr"):
+        with open(os.path.join(FIXTURES, name), "rb") as f:
+            raw = f.read()
+        found = macos.decode(raw)
+        _v, parts, _a = exr.read_header(raw)
+        mine = exr.read(raw, parts[0], ["R", "G", "B"])
+        same = found is not None and all(found[3][c] == mine.planes[c] for c in "RGB")
+        check("the system decodes %s to the same samples" % name, same)
+    with open(os.path.join(FIXTURES, "rgba_16_dwaa.exr"), "rb") as f:
+        check("the system refuses DWAA, as measured", macos.decode(f.read()) is None)
+
+
+def run_library() -> None:
+    """The compiled decoder, where there is one for this machine (or one named
+    by XVERB_HDR_NATIVE), must give the samples this reader gives."""
+    import native
+    if not native.available():
+        print("      (no compiled decoder for %s: not checked)" % native.target())
+        return
+    names = sorted(n for n in os.listdir(FIXTURES) if n.endswith(".exr"))
+    for name in names:
+        with open(os.path.join(FIXTURES, name), "rb") as f:
+            raw = f.read()
+        _v, parts, _a = exr.read_header(raw)
+        index, _layer, wanted, _data = main.choose(parts)
+        part = parts[index]
+        got = native.decode(raw, index, wanted, part.width, part.height)
+        if part.compression not in exr.READABLE:
+            check("the library refuses %s" % name, got is None, native.last_error)
+            continue
+        mine = exr.read(raw, part, wanted)
+        same = got is not None and all(
+            floats(got[c], exr.FLOAT) == tuple(float(v) for v in floats(mine.planes[c], mine.types[c]))
+            for c in wanted)
+        check("the library decodes %s to the same samples" % name, same, native.last_error)
+    raw = _tiled_exr(21, 13, 8)
+    _v, parts, _a = exr.read_header(raw)
+    got = native.decode(raw, 0, ["R"], 21, 13)
+    ok = got is not None and floats(got["R"], exr.FLOAT) == tuple(
+        float(x + 100 * y) for y in range(13) for x in range(21))
+    check("the library puts a mipmapped tiled file together from level 0", ok, native.last_error)
+
+
 def run_tone() -> None:
     lut = tone.table(tone.HALF, 0.0, "standard")
     key = lambda v: struct.unpack("<H", struct.pack("<e", v))[0]  # noqa: E731
@@ -248,6 +297,8 @@ if __name__ == "__main__":
     run_tiled()
     run_pfm()
     run_tone()
+    run_system()
+    run_library()
     run_extra(sys.argv[1:])
     print("\n%s" % ("all passed" if not failures else "%d failed: %s" % (len(failures), failures)))
     sys.exit(1 if failures else 0)

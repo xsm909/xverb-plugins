@@ -1,5 +1,12 @@
 # HDR and EXR: changes
 
+## 0.3.0 — 2026-09-25
+
+- On Windows and Linux a compiled decoder (tinyexr) reads EXR, every compression but DWA, multi-part and tiled — 1.5 seconds for a 4K HDRI with the same library built for a Mac; not yet run on Windows or Linux.
+- On macOS the system decodes a plain EXR: a 4K HDRI opens in 1.5 seconds instead of 8, the same picture.
+- A file on the disk is read from it directly rather than through the host, most of a second saved on a large one.
+- DWAA and DWAB are no longer handed to the system on macOS, which refuses them too.
+
 ## 0.2.0 — 2026-09-25
 
 - A large EXR is decompressed on every core but one: a 4K HDRI in PIZ opens in 8 seconds instead of 26.
