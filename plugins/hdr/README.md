@@ -38,31 +38,29 @@ refused rather than drawn wrongly.
 
 Everything is the standard library, so everything per sample is where the time
 goes, and the reader is written so that nearly all of it runs in C — slices,
-`zlib`, `accumulate`, and one 65 536-entry table per curve. Measured on a Mac
-mini, 1920 × 1080, RGBA:
+`zlib`, `accumulate`, and one 65 536-entry table per curve. An EXR's chunks
+know nothing of each other, so a file worth more than a second of work is
+decompressed on every core but one (at most eight), in worker processes kept
+for the next file. Measured on a Mac mini, 4 performance and 4 efficiency
+cores:
 
-| file | time |
-| --- | --- |
-| Radiance `.hdr` | 0.3 s |
-| ZIP, half | 0.8 s |
-| ZIP, float | 1.3 s |
-| PIZ, half, a render | 2.1 s |
-| PIZ, half, every pixel noise | 5.0 s |
-| PIZ, float, every pixel noise | 10 s |
-
-And a real one: a Poly Haven HDRI, 4096 × 2048 float RGB in PIZ, 75 MB — 26 s.
+| file | one core | all of them |
+| --- | --- | --- |
+| Radiance `.hdr`, 1920 × 1080 | 0.3 s | — |
+| ZIP, half RGBA, 1920 × 1080 | 0.8 s | — |
+| PIZ, float RGBA, 1920 × 1080, every pixel noise | 10 s | 3.1 s |
+| a Poly Haven HDRI, 4096 × 2048 float RGB in PIZ, 75 MB | 26 s | 7.8 s, 8.6 s through the host |
 
 PIZ is the slow one because its Huffman codes and its wavelet have to be
-worked one value at a time. The noise rows are the worst case there is: a
-render compresses better than noise, and a 4K frame of float noise in PIZ is
-the file that would come near the host's 60 seconds.
+worked one value at a time; seven workers came to 3.9 times one here, which
+is what four fast cores and four slow ones give.
 
 **Thumbnails have eight seconds**, and a PIZ chunk is 32 whole rows, so a
 thumbnail of that HDRI costs as much as the picture. The cost is estimated
 from the header first — within a few percent on the files above, and high
-rather than low — and a file over five seconds gets no thumbnail at once,
-rather than none after eight. On macOS the system reads EXR thumbnails itself
-and this is never asked.
+rather than low — and a file over five seconds, counting half the workers,
+gets no thumbnail at once rather than none after eight. On macOS the system
+reads EXR thumbnails itself and this is never asked.
 
 ## Checking it
 

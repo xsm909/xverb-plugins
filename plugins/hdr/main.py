@@ -49,6 +49,7 @@ from xverb import Plugin, error, fact, fact_group, facts, image  # noqa: E402
 import exr  # noqa: E402
 import pfm  # noqa: E402
 import png  # noqa: E402
+import pool  # noqa: E402
 import rgbe  # noqa: E402
 import tone  # noqa: E402
 
@@ -66,6 +67,9 @@ MAX_HANDOVER = 64 << 20
 HEAD_BYTES = 1 << 20
 
 EXTENSIONS = ["exr", "hdr", "pfm"]
+
+#: Seconds of expected work past which an EXR is decompressed on every core.
+PARALLEL_FROM = 1.0
 
 
 def _exposure() -> float:
@@ -150,7 +154,10 @@ def draw(extension: str, raw: bytes, step: int = 1) -> Drawn:
         _version, parts, _at = exr.read_header(raw)
         index, layer, names, data = choose(parts)
         part = parts[index]
-        picture = exr.read(raw, part, names, step)
+        # The pool only when it pays: starting it is a fraction of a second,
+        # and a small ZIP file is done before the workers would be.
+        spread = pool.decode if exr.cost(part, step) > PARALLEL_FROM else None
+        picture = exr.read(raw, part, names, step, spread)
         channels, pixels, stretched = tone.render(
             picture.planes, picture.types, names, exposure, view, data)
         notes = []
@@ -271,6 +278,10 @@ def small_copy(url: str, pixels: int) -> Optional[bytes]:
             _v, parts, _a = exr.read_header(raw)
             index, _layer, _names, _data = choose(parts)
             expected = exr.cost(parts[index], step)
+            if expected > PARALLEL_FROM:
+                # Half the workers, not all: on a machine with efficiency
+                # cores seven workers were measured at 3.9 times one.
+                expected /= max(1.0, pool.workers() / 2)
             if expected > THUMBNAIL_BUDGET:
                 plugin.log("No thumbnail for %s: about %.0fs of %s"
                            % (url.rsplit("/", 1)[-1], expected,
@@ -485,6 +496,11 @@ def about(url: str) -> dict:
         return describe_pfm(name, whole, head)
     except FAILURES as failure:
         return facts([], note="This file's header could not be read: %s" % failure)
+
+
+@plugin.on_shutdown
+def stop_workers():
+    pool.shutdown()
 
 
 if __name__ == "__main__":

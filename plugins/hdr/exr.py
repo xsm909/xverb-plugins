@@ -789,7 +789,7 @@ def _b44(data: bytes, layout, y0: int, ny_all: int) -> bytes:
     return bytes(out)
 
 
-def decompress(part: Part, data: bytes, x0: int, y0: int, nx_all: int, ny_all: int) -> bytes:
+def decompress(part, data: bytes, x0: int, y0: int, nx_all: int, ny_all: int) -> bytes:
     """One chunk's bytes, back to the plain layout: line by line, and within
     a line channel by channel, in the order the header lists them."""
     layout = _layout(part, x0, y0, nx_all, ny_all)
@@ -852,11 +852,32 @@ def cost(part: Part, step: int = 1) -> float:
     return kept * lines * values_per_row * rate
 
 
-def read(data: bytes, part: Part, wanted: List[str], step: int = 1) -> Image:
+class Spec:
+    """What decompressing a chunk needs to know about its part, and no more —
+    it crosses to a worker process with every batch."""
+
+    def __init__(self, compression: int, channels: List[Channel]):
+        self.compression = compression
+        self.channels = channels
+
+
+def decode_job(spec: Spec, job: Tuple[int, int, int, int, bytes]) -> Optional[bytes]:
+    """One chunk decompressed, or None when it is damaged. Top level, so a
+    worker process can be handed it."""
+    x0, y0, nx, ny, raw = job
+    try:
+        return decompress(spec, raw, x0, y0, nx, ny)
+    except (zlib.error, ExrError, IndexError, struct.error, ValueError):
+        return None
+
+
+def read(data: bytes, part: Part, wanted: List[str], step: int = 1, pool=None) -> Image:
     """The [wanted] channels of [part], every [step]th row and column.
 
     Only chunks holding a row that is kept are decompressed: a thumbnail of a
-    tall ZIP image reads one chunk in [step]/16 or so.
+    tall ZIP image reads one chunk in [step]/16 or so. [pool], when given, is
+    `pool(spec, jobs) -> blocks` and decompresses the chunks elsewhere; they
+    are independent of each other, which is what makes that possible.
     """
     if part.deep:
         raise ExrError("Deep data has many samples per pixel and no single picture")
@@ -895,6 +916,9 @@ def read(data: bytes, part: Part, wanted: List[str], step: int = 1) -> Image:
                     planes[channel.name][start:start + len(line)] = line
                 at += n
 
+    # First every chunk worth decompressing, then the decompressing — here,
+    # or spread over the pool when there is one and the work is worth it.
+    jobs: List[Tuple[int, int, int, int, bytes]] = []
     if not part.tiled:
         lines = part.lines
         for offset in part.offsets:
@@ -914,12 +938,7 @@ def read(data: bytes, part: Part, wanted: List[str], step: int = 1) -> Image:
             if start + size > len(data):
                 image.missing_chunks += 1
                 continue
-            try:
-                block = decompress(part, data[start:start + size], part.xmin, y, part.width, ny)
-            except (zlib.error, ExrError, IndexError, struct.error):
-                image.missing_chunks += 1
-                continue
-            place(block, part.xmin, y, part.width, ny)
+            jobs.append((part.xmin, y, part.width, ny, data[start:start + size]))
     else:
         tx, ty, _mode = part.tiles
         across = (part.width + tx - 1) // tx
@@ -942,12 +961,17 @@ def read(data: bytes, part: Part, wanted: List[str], step: int = 1) -> Image:
             if step > 1 and not any((cy * ty + k) % step == 0 for k in range(ny)):
                 continue
             start = offset + head + 20
-            try:
-                block = decompress(part, data[start:start + size], x0, y0, nx, ny)
-            except (zlib.error, ExrError, IndexError, struct.error):
-                image.missing_chunks += 1
-                continue
-            place(block, x0, y0, nx, ny)
+            jobs.append((x0, y0, nx, ny, data[start:start + size]))
+
+    spec = Spec(part.compression, part.channels)
+    blocks = pool(spec, jobs) if pool is not None and len(jobs) > 1 else None
+    if blocks is None:
+        blocks = [decode_job(spec, job) for job in jobs]
+    for (x0, y0, nx, ny, _raw), block in zip(jobs, blocks):
+        if block is None:
+            image.missing_chunks += 1
+            continue
+        place(block, x0, y0, nx, ny)
 
     for channel in chosen:
         image.planes[channel.name] = bytes(planes[channel.name])
