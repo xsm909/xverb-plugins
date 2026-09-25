@@ -1,0 +1,61 @@
+{
+  "id": "org.xverb.hdr",
+  "name": "HDR and EXR",
+  "version": "0.1.0",
+  "description": "Pictures that hold light: OpenEXR renders and textures, Radiance .hdr environment maps and PFM, shown at the exposure and with the view you choose. Multilayer renders open on their beauty pass, and About lists every layer, the compression and what the renderer wrote about itself.",
+  "category": "Viewers",
+  "author": "xverb",
+  "homepage": "https://github.com/xsm909/xverb-plugins",
+  "apiVersion": 1,
+  "runtime": "python",
+  "entry": "main.py",
+  "pythonMin": "3.12",
+  "icon": "image",
+  "platforms": ["windows", "macos", "linux"],
+  "viewers": [
+    {
+      "id": "hdr.picture",
+      "title": "HDR picture",
+      "extensions": ["exr", "hdr", "pfm"],
+      "priority": 20,
+      "produces": "picture",
+      "thumbnails": true
+    }
+  ],
+  "describers": [
+    {
+      "id": "hdr.about",
+      "title": "About this picture",
+      "extensions": ["exr", "hdr", "pfm"]
+    }
+  ],
+  "settings": [
+    {
+      "key": "exposure",
+      "label": "Exposure",
+      "type": "choice",
+      "default": "0",
+      "options": [
+        {"value": "-3", "label": "−3 EV"},
+        {"value": "-2", "label": "−2 EV"},
+        {"value": "-1", "label": "−1 EV"},
+        {"value": "0", "label": "0 EV, as the file says"},
+        {"value": "1", "label": "+1 EV"},
+        {"value": "2", "label": "+2 EV"},
+        {"value": "3", "label": "+3 EV"}
+      ],
+      "note": "Each step doubles or halves the light before it is drawn."
+    },
+    {
+      "key": "view",
+      "label": "View",
+      "type": "choice",
+      "default": "standard",
+      "options": [
+        {"value": "standard", "label": "Standard"},
+        {"value": "filmic", "label": "Filmic"}
+      ],
+      "note": "Standard clips at white, as Blender and Photoshop show a render. Filmic rolls the highlights off, so a bright sky keeps its gradient."
+    }
+  ]
+}
