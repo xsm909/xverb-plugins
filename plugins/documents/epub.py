@@ -41,7 +41,7 @@ import mdtext
 from package import Package, Unreadable
 from xhtml import Page
 
-from compat import Picture, picture_size
+from xverb import Picture, picture_size
 
 OPF = "http://www.idpf.org/2007/opf"
 DC = "http://purl.org/dc/elements/1.1/"

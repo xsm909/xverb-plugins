@@ -36,12 +36,11 @@ import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from xverb import Plugin, error, fact, fact_group, facts, markdown  # noqa: E402
+from xverb import Plugin, error, fact, fact_group, facts  # noqa: E402
 from xverb.fs import local_path  # noqa: E402
 
 import xml.etree.ElementTree as ET  # noqa: E402
 
-import compat  # noqa: E402
 import doc  # noqa: E402
 import docx  # noqa: E402
 import epub  # noqa: E402
@@ -134,12 +133,9 @@ def _book(url: str, only_cover: bool = False):
 
 
 def _answer(text: str, pictures: dict, cut: bool) -> dict:
-    """The reading, with its pictures where the application can draw them.
-    An application older than 1.1.0.501 gets plain Markdown it can read: the
-    pictures as their captions, the escapes taken back out."""
-    if compat.modern(plugin):
-        return plugin.document(text, pictures, truncated=cut)
-    return markdown(compat.for_older(text, tr("picture")), truncated=cut)
+    """The reading, its pictures fetched when they are scrolled to — which
+    is plugin API level 2, and why the manifest asks for it."""
+    return plugin.document(text, pictures, truncated=cut)
 
 
 def _cut(text: str) -> tuple:

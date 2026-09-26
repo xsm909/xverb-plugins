@@ -38,7 +38,7 @@ from typing import Dict, List, Optional, Tuple
 import mdtext
 from mdtext import Span
 
-from compat import Picture, picture_size
+from xverb import Picture, picture_size
 
 FB = "http://www.gribuser.ru/xml/fictionbook/2.0"
 XLINK = "http://www.w3.org/1999/xlink"

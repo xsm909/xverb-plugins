@@ -64,7 +64,7 @@ import mdtext
 from compound import Compound
 from mdtext import Span
 
-from compat import Picture, picture_size
+from xverb import Picture, picture_size
 
 #: The FIB's flags word and the two bits read in it.
 _ENCRYPTED = 0x0100

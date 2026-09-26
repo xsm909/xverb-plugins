@@ -40,7 +40,10 @@ ROOT = Path(__file__).resolve().parent.parent
 PLUGINS = ROOT / "plugins"
 INDEX = ROOT / "index.json"
 
-API_VERSION = 1
+#: The plugin API levels an Xverb of today runs: 1 is everything written before
+#: levels were counted, 2 (Xverb 1.1.0.502) added pictures in a document.
+API_OLDEST = 1
+API_VERSION = 2
 RUNTIMES = {"python", "declarative"}
 
 # `category` is required. The manager groups by it the way an app store does,
@@ -110,9 +113,10 @@ def check(folder: Path, seen: dict[str, str]) -> tuple[dict | None, list[str]]:
             file=sys.stderr,
         )
 
-    if manifest.get("apiVersion") != API_VERSION:
+    level = manifest.get("apiVersion")
+    if not isinstance(level, int) or not API_OLDEST <= level <= API_VERSION:
         problems.append(
-            f"apiVersion is {manifest.get('apiVersion')}, host speaks {API_VERSION}"
+            f"apiVersion is {level}, the host speaks {API_OLDEST} to {API_VERSION}"
         )
 
     runtime = manifest.get("runtime")

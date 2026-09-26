@@ -79,13 +79,11 @@ body is the last chapter, and the pictures are the file's own base64.
 The cover comes first, then the title and the author; it is also the book's
 picture on the strip and on its About card.
 
-## On an older application
+## Which Xverb it needs
 
 Pictures in a reading, and the escapes that keep a document's asterisks from
-turning into emphasis, came with Xverb 1.1.0.501. On an older application the
-plugin still starts and still reads every document: `compat.py` supplies what
-that SDK lacks, and the answer is plain Markdown with each picture as its
-caption and the escapes taken back out.
+turning into emphasis, are plugin API level 2 — Xverb 1.1.0.502 and later. An
+older Xverb lists this plugin greyed, with Install turned off.
 
 ## Files
 
@@ -97,7 +95,6 @@ caption and the escapes taken back out.
 | `epub.py` | EPUB: container, package, contents, cover, DRM |
 | `xhtml.py` | A chapter's XHTML as Markdown, with headings from the contents |
 | `fb2.py` | FictionBook, and the probe for .fb2.zip |
-| `compat.py` | What the plugin needs from the SDK, on an application that may be older |
 | `compound.py` | The compound file a .doc lives in, the same reader the sheets plugin has |
 | `mdtext.py` | The Markdown every converter writes: escaping, marks, tables |
 | `package.py` | A zip opened where it lies, and opened again when a picture is wanted |

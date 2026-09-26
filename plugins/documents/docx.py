@@ -49,7 +49,7 @@ import mdtext
 from mdtext import Span
 from package import Package, join
 
-from compat import Picture
+from xverb import Picture
 
 MAIN = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 REL = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"

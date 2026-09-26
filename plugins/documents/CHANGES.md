@@ -1,5 +1,9 @@
 # Documents as Markdown: changes
 
+## 0.1.1 — 2026-09-26
+
+- Needs plugin API level 2, Xverb 1.1.0.502: an older Xverb lists it greyed with Install turned off, rather than installing something it cannot draw.
+
 ## 0.1.0 — 2026-09-26
 
 - A Word file read as a document on F3 — .docx, .docm, .dotx, .dotm, and Word 97–2003's .doc and .dot: headings, lists with Word's own numbering, tables, links, notes and comments, with the fonts, page breaks, headers and footers thrown away.
@@ -12,5 +16,4 @@
 - EPUB 3 notes are written at the end of their chapter with their mark left in place; FictionBook's notes are the book's last chapter. A book under DRM says so.
 - The cover is the book's picture on the strip and on its About card.
 - About this document: title, author, dates, words, pictures, comments.
-- On an application older than 1.1.0.501 it still reads every document, as plain Markdown with each picture as its caption.
 - Speaks Russian.
