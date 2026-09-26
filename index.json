@@ -89,10 +89,10 @@
     "folder": "documents",
     "id": "org.xverb.documents",
     "name": "Documents as Markdown",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "description": "A document or a book read as text rather than laid out as pages \u2014 Word's .docx and older .doc, EPUB, and FictionBook (.fb2 and .fb2.zip): headings, lists, tables, notes, comments and pictures, with the fonts, the page breaks, the headers and the footers thrown away. A book's headings come from its own contents when its pages do not mark them. The page as it was set is one Enter away.",
     "runtime": "python",
-    "apiVersion": 1,
+    "apiVersion": 2,
     "platforms": [
       "windows",
       "macos",
@@ -101,7 +101,7 @@
     "pythonMin": "3.12",
     "category": "Viewers",
     "icon": "view",
-    "updated": "2026-09-26T14:10:49+02:00"
+    "updated": "2026-09-26T14:10:57+02:00"
   },
   {
     "folder": "duplicates",
