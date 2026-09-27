@@ -125,7 +125,7 @@
     "folder": "fbx",
     "id": "org.xverb.fbx",
     "name": "3D",
-    "version": "0.16.0",
+    "version": "0.16.1",
     "description": "Shows a 3D model: shaded, turnable, textured, playing its animation \u2014 or its skeleton playing it, where the file has no mesh \u2014 and what the file holds. FBX, glTF/GLB, OBJ, Maya scenes (.ma, .mb), Houdini geometry (.geo, .bgeo, .bgeo.sc) and USD (.usd, .usda, .usdc, .usdz), one viewer for all of them.",
     "runtime": "python",
     "apiVersion": 3,
@@ -137,7 +137,7 @@
     "pythonMin": "3.12",
     "category": "Viewers",
     "icon": "view",
-    "updated": "2026-09-27T12:54:37+02:00"
+    "updated": "2026-09-27T13:21:21+02:00"
   },
   {
     "folder": "ftp",
@@ -427,8 +427,8 @@
     "folder": "unreal",
     "id": "org.xverb.unreal",
     "name": "Unreal assets",
-    "version": "0.1.0",
-    "description": "Unreal Engine assets and maps, .uasset and .umap, as the Content Browser shows them: the thumbnail the editor saved, the class, the engine that saved it, the file it was imported from, what the browser shows on hover \u2014 a texture's size and format, a mesh's triangles, an animation's frames \u2014 and the assets it uses. Thumbnails in the film strip too. Only the header is read, from UE 4.0 to 5.7; nothing is ever written.",
+    "version": "0.3.0",
+    "description": "Unreal Engine assets and maps, .uasset and .umap: static and skeletal meshes in 3D, an animation played on its character's body (or its bones), and for everything the page the Content Browser would show \u2014 thumbnail, class, engine, source file, hover tags, the assets it uses. Meshes need the Oodle decompressor that comes with Unreal Engine, found in the install on this machine. From UE 4.0 to 5.7; nothing is ever written.",
     "runtime": "python",
     "apiVersion": 3,
     "platforms": [
@@ -439,7 +439,7 @@
     "pythonMin": "3.12",
     "category": "Viewers",
     "icon": "view",
-    "updated": "2026-09-27T12:54:37+02:00"
+    "updated": "2026-09-27T13:21:21+02:00"
   },
   {
     "folder": "vector",
