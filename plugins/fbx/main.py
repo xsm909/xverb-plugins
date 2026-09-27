@@ -46,12 +46,19 @@ import geometry  # noqa: E402
 import gltffile  # noqa: E402
 import gltfanim  # noqa: E402
 import gltfscene  # noqa: E402
+import houdinigeo  # noqa: E402
+import mayafile  # noqa: E402
 import objfile  # noqa: E402
 from scene import Scene, summarise  # noqa: E402
 
 #: What this can be pointed at. One viewer for all of them: which format a file
 #: is, is the reader's business and nobody else's.
-MODELS = ["fbx", "glb", "gltf", "obj"]
+MODELS = ["fbx", "glb", "gltf", "obj", "ma", "mb", "geo", "bgeo"]
+
+#: Houdini's compressed geometry, `.bgeo.sc`. The host sees only the last
+#: extension, and `.sc` is also Scala and SuperCollider, so it is claimed by
+#: a probe that looks for `scf1` rather than by the name.
+COMPRESSED = ["sc"]
 
 plugin = Plugin("org.xverb.fbx", "FBX")
 
@@ -89,10 +96,24 @@ class Model:
         self.url = url
         self.size = len(data)
         head = data.lstrip()[:1]
-        if url.lower().rsplit(".", 1)[-1] == "obj":
+        extension = url.lower().rsplit(".", 1)[-1]
+        if extension == "obj":
             self.kind = "obj"
             self.data = data
             self.parts = None
+        elif extension in ("geo", "bgeo", "sc") or data[:4] == b"scf1" \
+                or data[:5] in (b"\x7fNSJb", b"\x7fbJSN") or data[:9] == b"PGEOMETRY":
+            self.kind = "houdini"
+            self.document = houdinigeo.read(
+                data, lambda done: plugin.progress(0.3 + 0.2 * done))
+            self.parts = None
+            self.note = None
+        elif extension in ("ma", "mb") or data[:4] in (b"FOR4", b"FOR8") \
+                or data[:6] == b"//Maya":
+            self.kind = "maya"
+            self.scene = mayafile.read(data)
+            self.parts = None
+            self.note = None
         elif data[:4] == gltffile.MAGIC or head == b"{":
             self.kind = "gltf"
             self.document = gltffile.parse(data)
@@ -107,6 +128,15 @@ class Model:
             self.scene = Scene(self.document)
 
     def meshes(self):
+        if self.kind == "houdini":
+            if self.parts is None:
+                self.parts, self.note = houdinigeo.meshes(
+                    self.document, report=lambda done: plugin.progress(0.3 + 0.7 * done))
+            return self.parts, self.note
+        if self.kind == "maya":
+            if self.parts is None:
+                self.parts, self.note = mayafile.meshes(self.scene)
+            return self.parts, self.note
         if self.kind == "obj":
             self.parts, note = objfile.meshes(
                 self.data,
@@ -121,6 +151,12 @@ class Model:
         return geometry.meshes(self.scene)
 
     def facts(self) -> dict:
+        if self.kind == "houdini":
+            parts, note = self.meshes()
+            return houdinigeo.summarise(self.document, parts, note, self.size)
+        if self.kind == "maya":
+            parts, note = self.meshes()
+            return mayafile.summarise(self.scene, parts, note)
         if self.kind == "obj":
             if self.parts is None:
                 self.meshes()
@@ -130,8 +166,9 @@ class Model:
         return summarise(self.scene)
 
     def clips(self, parts: list) -> list:
-        """What moves. OBJ has nothing that can."""
-        if self.kind == "obj":
+        """What moves. OBJ has nothing that can; a Maya scene's animation
+        curves are counted in the report, not played."""
+        if self.kind in ("obj", "maya", "houdini"):
             return []
         if self.kind == "gltf":
             return gltfanim.clips(self.document, self.held, parts)
@@ -182,13 +219,17 @@ def _read(url: str, share: float) -> bytes:
 
 def _load(url: str):
     """The file, parsed, or the content that explains why not."""
-    obj = url.lower().rsplit(".", 1)[-1] == "obj"
-    data = _read(url, READING_SHARE_OBJ if obj else 1.0)
+    extension = url.lower().rsplit(".", 1)[-1]
+    # The reading is all of the bar except where the parsing after it
+    # reports too: an OBJ's lines, a Houdini file's decompression.
+    share = {"obj": READING_SHARE_OBJ, "sc": 0.3, "bgeo": 0.5, "geo": 0.5}.get(extension, 1.0)
+    data = _read(url, share)
     if not data:
         return None, error("The file is empty, or could not be read.")
     try:
         return Model(url, data), None
-    except (fbxfile.FbxError, gltffile.GltfError) as failure:
+    except (fbxfile.FbxError, gltffile.GltfError, mayafile.MayaError,
+            houdinigeo.HoudiniError) as failure:
         return None, error(str(failure))
     except Exception as failure:  # noqa: BLE001 - a malformed file is not a crash
         return None, error("This file could not be read as a model: %s" % failure)
@@ -455,6 +496,16 @@ def mesh3d(meshes: list, up_axis: str, unit_scale: float, note: dict,
     }
 
 
+def _houdini_compressed(head: bytes) -> bool:
+    return head.startswith(b"scf1")
+
+
+@plugin.viewer("fbx.houdini", "Model", extensions=COMPRESSED, priority=20,
+               probe=_houdini_compressed, produces="model")
+def compressed_model(url: str) -> dict:
+    return model(url)
+
+
 @plugin.viewer("fbx.model", "Model", extensions=MODELS, priority=20,
                produces="model")
 def model(url: str) -> dict:
@@ -476,6 +527,31 @@ def model(url: str) -> dict:
             parts = [bones]
 
     if not parts:
+        unbuilt = (note or {}).get("unbuilt") or {}
+        if unbuilt:
+            # A Maya mesh made by modelling history — an extrusion, a split —
+            # is only ever the result of running it, and only Maya runs it.
+            return error(
+                "The meshes in this scene are built by modelling steps only "
+                "Maya can replay (%s). Save it with the history deleted, or "
+                "export it, to see it here. Shift+F3 lists what it does carry."
+                % ", ".join(sorted(unbuilt))
+            )
+        other = (note or {}).get("other") or {}
+        if other:
+            # Houdini geometry that is all curves, particles or packed
+            # objects: nothing in it is a polygon.
+            said = ", ".join("%s %s" % (n, kind) for kind, n in sorted(other.items()))
+            return error(
+                "This geometry holds no polygons to draw: %s. Shift+F3 lists "
+                "what it does carry." % said
+            )
+        references = getattr(getattr(loaded, "scene", None), "references", None)
+        if references:
+            return error(
+                "This scene draws its models from other files it only names: "
+                "%s. Shift+F3 lists what it does carry." % ", ".join(references[:3])
+            )
         return error(
             "This file carries nothing to draw. Shift+F3 lists what it does "
             "carry."
@@ -500,7 +576,13 @@ def _report(facts: dict, size: int, kind: str = "fbx") -> str:
     lines = []
 
     version = facts["version"]
-    if kind == "gltf":
+    if kind == "houdini":
+        lines.append("# Houdini geometry%s" % (
+            " " + facts["houdiniVersion"] if facts.get("houdiniVersion") else ""))
+    elif kind == "maya":
+        lines.append("# Maya %s%s" % ("Binary" if facts["binary"] else "ASCII",
+                                       " " + facts["mayaVersion"] if facts.get("mayaVersion") else ""))
+    elif kind == "gltf":
         lines.append("# glTF 2.0")
     elif kind == "obj":
         lines.append("# Wavefront OBJ")
@@ -544,6 +626,31 @@ def _report(facts: dict, size: int, kind: str = "fbx") -> str:
         lines.append("## Geometry")
         lines.append("")
         lines.append("Nothing to draw: this file carries no mesh.")
+        lines.append("")
+
+    if facts.get("other"):
+        lines.append("## Not drawn")
+        lines.append("")
+        for what, n in sorted(facts["other"].items()):
+            lines.append("- %s %s" % (thousands(n), what))
+        lines.append("")
+    if facts.get("unbuilt"):
+        lines.append("## Not drawn")
+        lines.append("")
+        lines.append("%d mesh(es) are the result of modelling steps only Maya can "
+                     "replay: %s." % (sum(facts["unbuilt"].values()),
+                                      ", ".join(sorted(facts["unbuilt"]))))
+        lines.append("")
+    if facts.get("references"):
+        lines.append("## Referenced files")
+        lines.append("")
+        for reference in facts["references"][:20]:
+            lines.append("- `%s`" % reference.replace("`", "'"))
+        lines.append("")
+    if facts.get("animCurves"):
+        lines.append("## Animation")
+        lines.append("")
+        lines.append("%d animation curve(s), at %g fps." % (facts["animCurves"], facts["frameRate"]))
         lines.append("")
 
     if facts["joints"] or facts["skins"]:

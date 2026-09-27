@@ -1,8 +1,13 @@
 # 3D: changes
 
+## 0.15.0 — 2026-09-27
+
+- Maya scenes, .ma and .mb: meshes as stored, as bound under a skin, or rebuilt from the primitive they came from; instances, colours, and a plain word for what only Maya can replay.
+- Houdini geometry, .geo, .bgeo and .bgeo.sc: polygons with their normals, UVs and colour, a tetrahedral mesh as its skin, and the old PGEOMETRY text.
+
 ## 0.14.0 — 2026-09-27
 
-- A big model says how far it has got, and stops when you leave it. Needs Xverb 1.1.0.507.
+- A big model says how far it has got, and stops when you leave it. Needs Xverb 1.1.1.
 
 ## 0.13.0 — 2026-09-13
 

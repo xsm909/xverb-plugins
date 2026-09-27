@@ -21,8 +21,12 @@ host poses the bones by the same arithmetic.
 | `fbxfile.py` | The container: the tree a file *is*. Binary and text, no meaning attached. |
 | `scene.py` | What the tree means: the object graph, and the counting behind the report. |
 | `geometry.py` | Placing, triangulating and shading meshes into world-space triangles. |
+| `mayafile.py` | Maya scenes: the `.ma` script's statements, transforms, meshes stored and rebuilt. |
+| `mayabinary.py` | Maya Binary: the IFF chunks of a `.mb` into the same scene. |
+| `houdinigeo.py` | Houdini geometry: binary JSON, Blosc and LZ4, paged attributes, polygons, tetrahedra, the classic `.geo`. |
 | `main.py` | The contributions. |
 | `selftest.py` | Runs the reader over a folder of real files. |
+| `mayatest.py`, `houdinitest.py` | Maya and Houdini, checked on scenes written in the test. |
 
 ## Reading FBX
 
@@ -79,6 +83,30 @@ coded around:
 Sharing corners has to know about it too — a seam in an unwrapping is two
 corners in the same place facing the same way and reading opposite edges of the
 picture, and sharing those drags the whole picture across the model.
+
+## Maya scenes: `.ma` and `.mb`
+
+A `.ma` is a MEL script, and the statements that build a scene are read —
+`createNode`, `setAttr`, `connectAttr`, `parent -add` — not run. A `.mb` is
+the same, already parsed, in IFF chunks, and is read into the same scene.
+A mesh's shape is where it is found: in the mesh (its points, edges and
+faces); in the original shape upstream of a skin or a tweak, drawn as bound;
+or in the primitive it came from — `polyCube`, `polySphere`, `polyPlane`,
+`polyCylinder`, `polyCone`, `polyTorus`, rebuilt from their numbers as Maya
+builds them. Anything made by modelling history (an extrusion, a split) only
+Maya can replay; those meshes are named, not guessed. Instances are drawn
+once per place, the material's colour is kept, and a scene that only
+references its models says which files.
+
+## Houdini geometry: `.geo`, `.bgeo`, `.bgeo.sc`
+
+The JSON document Houdini 12 and later write, in text, in Houdini's binary
+JSON, or compressed in Blosc blocks — Blosc and LZ4 undone here in plain
+Python — and the classic `PGEOMETRY` text of before. Polygons are drawn,
+with `N`, `uv` and `Cd` where the file has them; a tetrahedral mesh is drawn
+as its skin. Curves, particles and packed primitives are counted and named.
+A `.bgeo.sc` is claimed by what it begins with, `scf1`, since the host only
+sees its last extension.
 
 ## Checking it
 
