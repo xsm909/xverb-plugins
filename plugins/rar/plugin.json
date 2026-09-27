@@ -1,0 +1,46 @@
+{
+  "id": "org.xverb.rar",
+  "name": "RAR archives",
+  "version": "0.1.0",
+  "description": "RAR archives as folders, read-only: enter one and walk it, F5 out of it to unpack, F3 for a table of what is inside. RAR 4 and RAR 5, solid archives and sets of volumes. Read with libarchive; nobody but RARLAB's own program can write a RAR, so nothing here does.",
+  "category": "Archives",
+  "author": "xverb",
+  "homepage": "https://github.com/xsm909/xverb-plugins",
+  "apiVersion": 1,
+  "runtime": "python",
+  "entry": "main.py",
+  "pythonMin": "3.12",
+  "icon": "archive",
+  "platforms": [
+    "windows",
+    "macos",
+    "linux"
+  ],
+  "schemes": [
+    {
+      "scheme": "rar",
+      "icon": "archive"
+    }
+  ],
+  "containers": [
+    {
+      "scheme": "rar",
+      "title": "RAR archive",
+      "extensions": [
+        "rar",
+        "cbr"
+      ]
+    }
+  ],
+  "viewers": [
+    {
+      "id": "rar.contents",
+      "title": "RAR contents",
+      "priority": 30,
+      "extensions": [
+        "rar",
+        "cbr"
+      ]
+    }
+  ]
+}

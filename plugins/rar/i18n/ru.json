@@ -1,0 +1,20 @@
+{
+  "RAR archives are read with libarchive, and none was found on this machine. Looked in: {places}": "Архивы RAR читаются через libarchive, а на этой машине её не нашлось. Искали здесь: {places}",
+  "This archive is encrypted. Xverb reads RAR archives with libarchive, which cannot decrypt them.": "Архив зашифрован. Xverb читает RAR через libarchive, а она не умеет их расшифровывать.",
+  "This archive goes on into another volume that is not here. Put all the parts in one folder on this machine.": "Архив продолжается в следующем томе, которого здесь нет. Положите все части в одну папку на этой машине.",
+  "A RAR archive can only be read. Nobody but RARLAB's own program can write one.": "Архив RAR можно только читать. Записать его умеет лишь программа самой RARLAB.",
+  "Name": "Имя",
+  "Size": "Размер",
+  "Modified": "Изменён",
+  "Note": "Заметка",
+  "{url} is not there": "{url} не найден",
+  "{path} is not in the archive": "{path} нет в архиве",
+  "{path} is encrypted. Xverb reads RAR archives with libarchive, which cannot decrypt them.": "{path} зашифрован. Xverb читает RAR через libarchive, а она не умеет их расшифровывать.",
+  "encrypted": "зашифрован",
+  "The archive is empty.": "Архив пуст.",
+  "RAR archives": "Архивы RAR",
+  "RAR archives as folders, read-only: enter one and walk it, F5 out of it to unpack, F3 for a table of what is inside. RAR 4 and RAR 5, solid archives and sets of volumes. Read with libarchive; nobody but RARLAB's own program can write a RAR, so nothing here does.": "Архивы RAR как папки, только для чтения: войдите и ходите внутри, F5 наружу — распаковать, F3 — таблица содержимого. RAR 4 и RAR 5, непрерывные архивы и многотомные наборы. Читается через libarchive; записать RAR умеет лишь программа самой RARLAB, поэтому здесь ничего не пишет.",
+  "Archives": "Архивы",
+  "RAR archive": "Архив RAR",
+  "RAR contents": "Содержимое RAR"
+}
