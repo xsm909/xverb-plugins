@@ -1,5 +1,9 @@
 # Unreal assets: changes
 
+## 0.5.0 — 2026-09-27
+
+- A mesh wears its materials' base colour pictures: each slot's material or instance is followed to the texture it paints with, parents included.
+
 ## 0.4.0 — 2026-09-27
 
 - A texture opens as its source picture — PNG and JPEG as imported, raw pixels in any of the source formats, and the UE Delta coding worked out from the files.

@@ -43,6 +43,7 @@ from xverb import Plugin, error, html, image  # noqa: E402
 
 import uasset  # noqa: E402
 import ueanim  # noqa: E402
+import uematerial  # noqa: E402
 import uemesh  # noqa: E402
 import uetexture  # noqa: E402
 
@@ -189,10 +190,11 @@ def _in_3d(url: str, klass: str, notes: List[str]) -> Optional[dict]:
     body_url = _find_package(url, body_path) if body_path else None
     if body_url is not None:
         try:
-            md = _largest(uemesh.descriptions(_whole(body_url).data))
+            body = _whole(body_url)
+            md = _largest(uemesh.descriptions(body.data))
             bones = uemesh.bones(md) if md else None
             if bones is not None:
-                return _body(md, ueanim.Skeleton(*bones), anim, title)
+                return _body(md, ueanim.Skeleton(*bones), anim, title, (body_url, body))
         except uemesh.NeedsOodle:
             notes.append(plugin.tr(
                 "Its body is compressed with Oodle, which comes with Unreal Engine; "
@@ -216,8 +218,53 @@ def _mesh_in_3d(url: str, klass: str, notes: List[str]) -> Optional[dict]:
     title = unquote(url.rstrip("/").rsplit("/", 1)[-1]).rsplit(".", 1)[0]
     bones = uemesh.bones(md) if klass == "SkeletalMesh" else None
     if bones is not None:
-        return _body(md, ueanim.Skeleton(*bones), None, title)
-    return _body(md, None, None, title)
+        return _body(md, ueanim.Skeleton(*bones), None, title, (url, whole))
+    return _body(md, None, None, title, (url, whole))
+
+
+#: A mesh's pictures are sent whole with it; past this they are made smaller.
+PICTURE_SIDE = 2048
+
+
+def _paint(url: str, package: uasset.Package, slots: List[str]) -> Tuple[list, List[int]]:
+    """The base colour picture of each slot's material: the images, and which
+    image each slot wears (-1 for none)."""
+    loaded = {}
+
+    def load(path: str) -> Optional[uasset.Package]:
+        if path in loaded:
+            return loaded[path]
+        where = _find_package(url, path)
+        found = None
+        if where is not None:
+            try:
+                found = _whole(where)
+            except Exception:  # noqa: BLE001 - a material not found is a grey slot
+                found = None
+        loaded[path] = found
+        return found
+
+    images: list = []
+    known = {}
+    chosen: List[int] = []
+    for material in uematerial.slot_materials(package, slots):
+        texture = uematerial.base_colour(material, load) if material else ""
+        if not texture:
+            chosen.append(-1)
+            continue
+        if texture not in known:
+            known[texture] = -1
+            found = load(texture)
+            if found is not None:
+                try:
+                    data, _, _ = uetexture.picture(found, PICTURE_SIDE)
+                    known[texture] = len(images)
+                    images.append({"name": texture.rsplit("/", 1)[-1],
+                                   "data": base64.b64encode(data).decode("ascii")})
+                except Exception:  # noqa: BLE001 - an unreadable picture is a grey slot
+                    pass
+        chosen.append(known[texture])
+    return images, chosen
 
 
 #: Shades for the material slots, since the materials are other assets.
@@ -226,9 +273,17 @@ _SHADES = ["#B8B2A7", "#8FA3B5", "#B59A8F", "#9DB58F", "#A99FC0", "#C2B48A"]
 MAX_TRIANGLES = 400000
 
 
-def _body(md, skeleton, anim, title: str) -> dict:
-    """Triangles, and — for a skeletal mesh — the skin, the bones and a clip."""
+def _body(md, skeleton, anim, title: str, owner=None) -> dict:
+    """Triangles, and — for a skeletal mesh — the skin, the bones and a clip.
+    ``owner`` is the mesh's url and package, for its materials' pictures."""
     parts, total = uemesh.parts(md)
+    images: list = []
+    wears = [-1] * len(parts)
+    if owner is not None:
+        try:
+            images, wears = _paint(owner[0], owner[1], [p["name"] for p in parts])
+        except (uasset.UassetError, uemesh.MeshError, struct.error, IndexError, KeyError):
+            images, wears = [], [-1] * len(parts)
     meshes = []
     kept = 0
     for at, part in enumerate(parts):
@@ -236,11 +291,12 @@ def _body(md, skeleton, anim, title: str) -> dict:
         if kept + count > MAX_TRIANGLES:
             continue
         kept += count
+        worn = wears[at] if at < len(wears) else -1
         entry = {
             "name": part["name"],
             "color": _SHADES[at % len(_SHADES)],
-            "image": -1,
-            "uvs": "",
+            "image": worn,
+            "uvs": _floats(part["uvs"]) if worn >= 0 else "",
             "bones": "",
             "boneParents": "",
             "joints": 0,
@@ -275,7 +331,7 @@ def _body(md, skeleton, anim, title: str) -> dict:
         "truncated": kept < total,
         "detail": "",
         "clips": clips,
-        "images": [],
+        "images": images,
         "meshes": meshes,
     }
 
