@@ -136,6 +136,7 @@ class Model:
         if self.kind == "maya":
             if self.parts is None:
                 self.parts, self.note = mayafile.meshes(self.scene)
+                self._references(self.url, self.scene, {self.url}, 0)
             return self.parts, self.note
         if self.kind == "obj":
             self.parts, note = objfile.meshes(
@@ -150,13 +151,54 @@ class Model:
             return gltfscene.meshes(self.document, self.held)
         return geometry.meshes(self.scene)
 
+    def _references(self, url: str, scene, seen: set, depth: int) -> None:
+        """The models a scene only names, drawn with it.
+
+        A rig and its animation are usually two files: the animation
+        references the rig by a path on the machine it was made on. That
+        path is tried first; failing it, a file of the same name in the
+        scene's own folder — which is where Maya looks too, and where a
+        downloaded pair ends up. Referenced files may reference others, a
+        few levels down, each once."""
+        if depth > 3:
+            return
+        found = self.note.setdefault("referencesFound", [])
+        missing = self.note.setdefault("referencesMissing", [])
+        for path in scene.references:
+            name = path.replace("\\", "/").rsplit("/", 1)[-1]
+            tried = [_sibling(url, name)]
+            if path.startswith("/") or (len(path) > 2 and path[1] == ":"):
+                tried.insert(0, "file://" + quote(path if path.startswith("/")
+                                                  else "/" + path.replace("\\", "/")))
+            where = next((t for t in tried if t not in seen and plugin.stat(t)), None)
+            if where is None:
+                missing.append(path)
+                continue
+            seen.add(where)
+            try:
+                inner = mayafile.read(plugin.read_file(where, max_bytes=MAX_BYTES))
+            except Exception:  # noqa: BLE001 - a broken reference is not a crash
+                missing.append(path)
+                continue
+            parts, note = mayafile.meshes(inner)
+            self.parts.extend(parts)
+            self.note["triangles"] += note["triangles"]
+            self.note["held"] = self.note.get("held", 0) + note.get("held", 0)
+            for kind, n in (note.get("unbuilt") or {}).items():
+                self.note["unbuilt"][kind] = self.note["unbuilt"].get(kind, 0) + n
+            found.append(name)
+            self._references(where, inner, seen, depth + 1)
+
     def facts(self) -> dict:
         if self.kind == "houdini":
             parts, note = self.meshes()
             return houdinigeo.summarise(self.document, parts, note, self.size)
         if self.kind == "maya":
             parts, note = self.meshes()
-            return mayafile.summarise(self.scene, parts, note)
+            facts = mayafile.summarise(self.scene, parts, note)
+            facts["referencesFound"] = note.get("referencesFound", [])
+            facts["referencesMissing"] = note.get("referencesMissing", [])
+            return facts
         if self.kind == "obj":
             if self.parts is None:
                 self.meshes()
@@ -644,8 +686,11 @@ def _report(facts: dict, size: int, kind: str = "fbx") -> str:
     if facts.get("references"):
         lines.append("## Referenced files")
         lines.append("")
+        found = facts.get("referencesFound") or []
         for reference in facts["references"][:20]:
-            lines.append("- `%s`" % reference.replace("`", "'"))
+            name = reference.replace("\\", "/").rsplit("/", 1)[-1]
+            said = "drawn, found beside this scene" if name in found else "not found"
+            lines.append("- `%s` — %s" % (reference.replace("`", "'"), said))
         lines.append("")
     if facts.get("animCurves"):
         lines.append("## Animation")

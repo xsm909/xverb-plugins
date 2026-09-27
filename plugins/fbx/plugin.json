@@ -1,7 +1,7 @@
 {
   "id": "org.xverb.fbx",
   "name": "3D",
-  "version": "0.15.0",
+  "version": "0.15.1",
   "description": "Shows a 3D model: shaded, turnable, textured, playing its animation — or its skeleton playing it, where the file has no mesh — and what the file holds. FBX, glTF/GLB, OBJ, Maya scenes (.ma, .mb) and Houdini geometry (.geo, .bgeo, .bgeo.sc), one viewer for all of them.",
   "category": "Viewers",
   "author": "xverb",

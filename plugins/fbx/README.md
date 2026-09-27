@@ -96,7 +96,9 @@ or in the primitive it came from — `polyCube`, `polySphere`, `polyPlane`,
 builds them. Anything made by modelling history (an extrusion, a split) only
 Maya can replay; those meshes are named, not guessed. Instances are drawn
 once per place, the material's colour is kept, and a scene that only
-references its models says which files.
+references its models draws them — from the path as written if it is on this
+machine, or else a file of the same name in the scene's own folder, as Maya
+itself looks — and says which it found.
 
 ## Houdini geometry: `.geo`, `.bgeo`, `.bgeo.sc`
 

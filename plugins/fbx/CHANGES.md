@@ -1,5 +1,9 @@
 # 3D: changes
 
+## 0.15.1 — 2026-09-27
+
+- A Maya scene that only references its model — an animation and its rig — draws the rig: the path as written if it is on this machine, or a file of the same name beside the scene.
+
 ## 0.15.0 — 2026-09-27
 
 - Maya scenes, .ma and .mb: meshes as stored, as bound under a skin, or rebuilt from the primitive they came from; instances, colours, and a plain word for what only Maya can replay.
