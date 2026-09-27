@@ -1,0 +1,32 @@
+{
+  "id": "org.xverb.unreal",
+  "name": "Unreal assets",
+  "version": "0.1.0",
+  "description": "Unreal Engine assets and maps, .uasset and .umap, as the Content Browser shows them: the thumbnail the editor saved, the class, the engine that saved it, the file it was imported from, what the browser shows on hover — a texture's size and format, a mesh's triangles, an animation's frames — and the assets it uses. Thumbnails in the film strip too. Only the header is read, from UE 4.0 to 5.7; nothing is ever written.",
+  "category": "Viewers",
+  "author": "xverb",
+  "homepage": "https://github.com/xsm909/xverb-plugins",
+  "apiVersion": 3,
+  "runtime": "python",
+  "entry": "main.py",
+  "pythonMin": "3.12",
+  "icon": "view",
+  "platforms": [
+    "windows",
+    "macos",
+    "linux"
+  ],
+  "viewers": [
+    {
+      "id": "unreal.asset",
+      "title": "Unreal asset",
+      "extensions": [
+        "uasset",
+        "umap"
+      ],
+      "priority": 30,
+      "produces": "unreal",
+      "thumbnails": true
+    }
+  ]
+}
