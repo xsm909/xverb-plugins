@@ -41,6 +41,7 @@ from urllib.parse import quote  # noqa: E402
 from xverb import Plugin, error, markdown  # noqa: E402
 
 import animation  # noqa: E402
+import colladafile  # noqa: E402
 import fbxfile  # noqa: E402
 import geometry  # noqa: E402
 import gltffile  # noqa: E402
@@ -49,6 +50,7 @@ import gltfscene  # noqa: E402
 import houdinigeo  # noqa: E402
 import mayafile  # noqa: E402
 import objfile  # noqa: E402
+import simplemesh  # noqa: E402
 import usdcrate  # noqa: E402
 import usdfile  # noqa: E402
 import usdtext  # noqa: E402
@@ -56,7 +58,8 @@ from scene import Scene, summarise  # noqa: E402
 
 #: What this can be pointed at. One viewer for all of them: which format a file
 #: is, is the reader's business and nobody else's.
-MODELS = ["fbx", "glb", "gltf", "obj", "ma", "mb", "geo", "bgeo", "usd", "usda", "usdc", "usdz"]
+MODELS = ["fbx", "glb", "gltf", "obj", "ma", "mb", "geo", "bgeo", "usd", "usda", "usdc", "usdz",
+          "stl", "ply", "off", "3mf", "dae", "zae"]
 
 #: Houdini's compressed geometry, `.bgeo.sc`. The host sees only the last
 #: extension, and `.sc` is also Scala and SuperCollider, so it is claimed by
@@ -126,6 +129,17 @@ class Model:
                 key, max_bytes=MAX_BYTES), report=lambda n: plugin.progress(min(0.95, 0.5 + n / 400)))
             self.parts = None
             self.note = None
+        elif extension in ("stl", "ply", "off", "3mf"):
+            self.kind = "simple"
+            self.format = extension
+            self.data = data
+            (self.simple, self.simple_pictures, self.z_up, self.unit,
+             self.beside) = simplemesh.read(extension, data)
+            self.parts = None
+        elif extension in ("dae", "zae"):
+            self.kind = "collada"
+            self.scene = colladafile.read(data, url)
+            self.parts = None
         elif data[:4] == gltffile.MAGIC or head == b"{":
             self.kind = "gltf"
             self.document = gltffile.parse(data)
@@ -153,6 +167,15 @@ class Model:
         if self.kind == "usd":
             if self.parts is None:
                 self.parts, self.note = usdfile.meshes(self.stage)
+            return self.parts, self.note
+        if self.kind == "simple":
+            if self.parts is None:
+                self.parts, self.note = simplemesh.meshes(
+                    self.simple, self.simple_pictures, self.z_up, self.beside)
+            return self.parts, self.note
+        if self.kind == "collada":
+            if self.parts is None:
+                self.parts, self.note = colladafile.meshes(self.scene)
             return self.parts, self.note
         if self.kind == "obj":
             self.parts, note = objfile.meshes(
@@ -218,6 +241,12 @@ class Model:
         if self.kind == "usd":
             parts, note = self.meshes()
             return usdfile.summarise(self.stage, parts, note, self.size)
+        if self.kind == "simple":
+            parts, note = self.meshes()
+            return simplemesh.summarise(self.format, parts, note, self.unit, self.data)
+        if self.kind == "collada":
+            parts, note = self.meshes()
+            return colladafile.summarise(self.scene, parts, note)
         if self.kind == "obj":
             if self.parts is None:
                 self.meshes()
@@ -229,7 +258,7 @@ class Model:
     def clips(self, parts: list) -> list:
         """What moves. OBJ has nothing that can; a Maya scene's animation
         curves are counted in the report, not played."""
-        if self.kind in ("obj", "maya", "houdini", "usd"):
+        if self.kind in ("obj", "maya", "houdini", "usd", "simple", "collada"):
             return []
         if self.kind == "gltf":
             return gltfanim.clips(self.document, self.held, parts)
@@ -291,7 +320,8 @@ def _load(url: str):
         return Model(url, data), None
     except (fbxfile.FbxError, gltffile.GltfError, mayafile.MayaError,
             houdinigeo.HoudiniError, usdfile.UsdError, usdcrate.CrateError,
-            usdtext.UsdaError) as failure:
+            usdtext.UsdaError, simplemesh.MeshFileError,
+            colladafile.ColladaError) as failure:
         return None, error(str(failure))
     except Exception as failure:  # noqa: BLE001 - a malformed file is not a crash
         return None, error("This file could not be read as a model: %s" % failure)
@@ -646,6 +676,10 @@ def _report(facts: dict, size: int, kind: str = "fbx") -> str:
                                        " " + facts["mayaVersion"] if facts.get("mayaVersion") else ""))
     elif kind == "usd":
         lines.append("# USD, %s" % ("binary (crate)" if facts["binary"] else "text"))
+    elif kind == "collada":
+        lines.append("# COLLADA%s" % (" (zipped)" if facts["binary"] else ""))
+    elif kind == "simple":
+        lines.append("# Mesh, %s" % ("binary" if facts["binary"] else "text"))
     elif kind == "gltf":
         lines.append("# glTF 2.0")
     elif kind == "obj":

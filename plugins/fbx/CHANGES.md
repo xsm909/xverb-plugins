@@ -1,5 +1,9 @@
 # 3D: changes
 
+## 0.17.0 — 2026-09-27
+
+- STL, PLY, OFF and 3MF — the formats of 3D printing and scanning — with their colours, and COLLADA (.dae, .zae) with its scene, materials and pictures.
+
 ## 0.16.1 — 2026-09-27
 
 - A USD stage with Z up — Pixar's kitchen, anything from Houdini's Z-up scenes — stands up instead of lying on its back.

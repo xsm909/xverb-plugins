@@ -27,9 +27,11 @@ host poses the bones by the same arithmetic.
 | `usdcrate.py` | USD's binary layer, the crate: its sections, LZ4 and integer coding, values. |
 | `usdtext.py` | USD's text layer, `#usda`, into the same specs the crate gives. |
 | `usdfile.py` | A USD stage: layers composed — sublayers, variants, references, payloads, inherits — and drawn. |
+| `simplemesh.py` | STL, PLY, OFF and 3MF: points and faces, colours gathered into meshes, 3MF's components and materials. |
+| `colladafile.py` | COLLADA, `.dae` and zipped `.zae`: the visual scene walked, transforms, materials and their pictures. |
 | `main.py` | The contributions. |
 | `selftest.py` | Runs the reader over a folder of real files. |
-| `mayatest.py`, `houdinitest.py`, `usdtest.py` | Maya, Houdini and USD, checked on scenes written in the test. |
+| `mayatest.py`, `houdinitest.py`, `usdtest.py`, `meshtest.py` | Maya, Houdini, USD and the plain formats, checked on files written in the test. |
 
 ## Reading FBX
 
@@ -135,6 +137,23 @@ if it sits in one. Invisible prims, guides, classes and prims that are only
 `over` are not. Point instancers, curves, points and volumes are counted and
 named. Pixar's Kitchen_set, 229 layers of both kinds, composes in about two
 seconds.
+
+## STL, PLY, OFF, 3MF and COLLADA
+
+The formats of 3D printing, scanning and exchange. STL in text and binary,
+its colour in the spare bytes either way it is done; PLY in text and both
+byte orders, with normals, colours and picture coordinates per vertex; OFF
+with a colour per face; 3MF with its components and their transforms, base
+materials, colour groups and textures, across the production extension's
+model files. The view paints a mesh one colour, so faces are gathered by
+colour — down to a few dozen shades where a scan has thousands. 3MF is Z-up
+by specification and STL by every printer's habit, and both are stood up.
+
+COLLADA's scene is walked the way it places things: node transforms written
+for column vectors are transposed as they are read, instances of nodes and of
+skinned geometry are followed, and a material's diffuse is a colour or a
+picture — found inside a `.zae`, or beside the file. Numbers written with a
+decimal comma, as some exporters do in their locale, are read as meant.
 
 ## Checking it
 
