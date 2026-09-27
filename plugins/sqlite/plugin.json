@@ -1,0 +1,36 @@
+{
+  "id": "org.xverb.sqlite",
+  "name": "SQLite databases",
+  "version": "0.1.0",
+  "description": "SQLite databases as sheets: a page for every table and view, read a screen at a time straight out of the database, so a table of ten million rows opens as fast as one of ten. Shift+F3 gives the report — every table with its columns, keys and indexes, and the statement that made it. Read-only: a database another program holds, a browser's history while the browser runs, is read from a copy.",
+  "category": "Viewers",
+  "author": "xverb",
+  "homepage": "https://github.com/xsm909/xverb-plugins",
+  "apiVersion": 1,
+  "runtime": "python",
+  "entry": "main.py",
+  "pythonMin": "3.12",
+  "icon": "view",
+  "platforms": [
+    "windows",
+    "macos",
+    "linux"
+  ],
+  "viewers": [
+    {
+      "id": "sqlite.tables",
+      "title": "Tables",
+      "extensions": ["db", "sqlite", "sqlite3", "db3", "s3db", "sl3", "sqlitedb", "gpkg", "mbtiles"],
+      "priority": 40,
+      "probe": true,
+      "produces": "database"
+    },
+    {
+      "id": "sqlite.contents",
+      "title": "What is in the database",
+      "extensions": ["db", "sqlite", "sqlite3", "db3", "s3db", "sl3", "sqlitedb", "gpkg", "mbtiles"],
+      "priority": 10,
+      "probe": true
+    }
+  ]
+}
