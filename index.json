@@ -101,7 +101,7 @@
     "pythonMin": "3.12",
     "category": "Viewers",
     "icon": "view",
-    "updated": "2026-09-26T14:10:57+02:00"
+    "updated": "2026-09-26T14:20:50+02:00"
   },
   {
     "folder": "duplicates",
@@ -125,10 +125,10 @@
     "folder": "fbx",
     "id": "org.xverb.fbx",
     "name": "3D",
-    "version": "0.13.0",
+    "version": "0.14.0",
     "description": "Shows a 3D model: shaded, turnable, textured, playing its animation \u2014 or its skeleton playing it, where the file has no mesh \u2014 and what the file holds. FBX, glTF/GLB and OBJ, one viewer for all of them.",
     "runtime": "python",
-    "apiVersion": 1,
+    "apiVersion": 3,
     "platforms": [
       "windows",
       "macos",
@@ -137,7 +137,7 @@
     "pythonMin": "3.12",
     "category": "Viewers",
     "icon": "view",
-    "updated": "2026-09-19T12:15:29+02:00"
+    "updated": "2026-09-27T07:14:57+02:00"
   },
   {
     "folder": "ftp",
