@@ -125,8 +125,8 @@
     "folder": "fbx",
     "id": "org.xverb.fbx",
     "name": "3D",
-    "version": "0.14.0",
-    "description": "Shows a 3D model: shaded, turnable, textured, playing its animation \u2014 or its skeleton playing it, where the file has no mesh \u2014 and what the file holds. FBX, glTF/GLB and OBJ, one viewer for all of them.",
+    "version": "0.15.0",
+    "description": "Shows a 3D model: shaded, turnable, textured, playing its animation \u2014 or its skeleton playing it, where the file has no mesh \u2014 and what the file holds. FBX, glTF/GLB, OBJ, Maya scenes (.ma, .mb) and Houdini geometry (.geo, .bgeo, .bgeo.sc), one viewer for all of them.",
     "runtime": "python",
     "apiVersion": 3,
     "platforms": [
@@ -137,7 +137,7 @@
     "pythonMin": "3.12",
     "category": "Viewers",
     "icon": "view",
-    "updated": "2026-09-27T07:14:57+02:00"
+    "updated": "2026-09-27T08:42:33+02:00"
   },
   {
     "folder": "ftp",
