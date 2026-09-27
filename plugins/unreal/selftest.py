@@ -17,6 +17,10 @@
 
 """The package reader, checked: `python3 selftest.py [folder…]`.
 
+Skeletons and animations are read too: a skeleton's parents must come before
+their children, and an animation's rotations must be unit quaternions, in each
+of the three ways the engines have kept them.
+
 A made-up header cannot test a reader of a format whose order is the whole
 difficulty — it would only agree with itself. So the traps are checked on
 bytes made here, and the order on **real packages**: every `.uasset` and
@@ -38,6 +42,7 @@ import time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import uasset  # noqa: E402
+import ueanim  # noqa: E402
 
 FAILED = []
 
@@ -100,6 +105,26 @@ for folder in folders:
             tally["problem"] += 1
             first_bad.setdefault(", ".join(package.problems), path)
         tally["versions %d" % package.legacy] += 1
+        klass = package.main_class()
+        try:
+            if klass == "Skeleton":
+                bones = ueanim.skeleton(package)
+                if bones is None or not all(-1 <= q < i for i, q in enumerate(bones.parents)):
+                    raise uasset.UassetError("parents out of order")
+                tally["skeleton"] += 1
+            elif klass == "AnimSequence":
+                anim = ueanim.animation(package)
+                if anim is not None and anim.tracks:
+                    for track in anim.tracks.values():
+                        for q in track.rotations[:4]:
+                            if abs(sum(v * v for v in q) - 1) > 1e-2:
+                                raise uasset.UassetError("a rotation that is not one")
+                    tally["animation, " + anim.model] += 1
+                else:
+                    tally["animation of curves only"] += 1
+        except (uasset.UassetError, struct.error, IndexError, KeyError) as failure:
+            tally["problem"] += 1
+            first_bad.setdefault("%s: %s" % (klass, failure), path)
     print("%s: %d package(s) in %.1fs — %s" % (folder, len(files), time.time() - started,
                                               dict(sorted(tally.items()))))
     for why, path in list(first_bad.items())[:5]:

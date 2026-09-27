@@ -160,6 +160,7 @@ class Package:
         self.export_count = self.export_offset = 0
         self.import_count = self.import_offset = 0
         self.thumbnail_offset = 0
+        self.soft_count = self.soft_offset = 0
         self.registry_offset = 0
         self.saved_by = ""
         self.compatible = ""
@@ -226,8 +227,8 @@ class Package:
         self.name_count = r.i32()
         self.name_offset = r.i32()
         if ue5 >= UE5_ADD_SOFTOBJECTPATH_LIST:
-            r.i32()
-            r.i32()
+            self.soft_count = r.i32()
+            self.soft_offset = r.i32()
         if not self.editor_only_filtered and ue4 >= UE4_LOCALIZATION_ID:
             r.string()
         if ue4 >= UE4_SERIALIZE_TEXT_IN_PACKAGES:
@@ -350,6 +351,18 @@ class Package:
         except UassetError:
             self.problems.append("imports")
         return out
+
+    def soft_path(self, index: int) -> str:
+        """Entry ``index`` of the soft object paths a UE 5.2+ package lists
+        once and points into: the package, then the asset in it."""
+        if not (0 <= index < self.soft_count and 0 < self.soft_offset < self.size):
+            return ""
+        r = _Reader(self.data, self.soft_offset)
+        for i in range(index + 1):
+            package = self.name(r.i32(), r.i32())
+            r.skip(8)  # the asset's name
+            r.string()  # a path below it
+        return package
 
     def packages_used(self) -> List[str]:
         """The other packages this one imports from, engine scripts left out."""
