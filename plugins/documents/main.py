@@ -23,7 +23,7 @@ none of the fonts, the page breaks, the headers and the footers. The page as
 it was set is one Enter away, in whatever this machine opens the file with.
 
 The work is next door: `docx` for Word 2007 and later, `doc` and `compound`
-for Word 97–2003, `mdtext` for the rules every
+for Word 97–2003, `odt` for OpenDocument, `rtf` for Rich Text, `mdtext` for the rules every
 converter writes its Markdown by, `package` for a zip that is read again when
 a picture is scrolled to.
 """
@@ -45,6 +45,8 @@ import doc  # noqa: E402
 import docx  # noqa: E402
 import epub  # noqa: E402
 import fb2  # noqa: E402
+import odt  # noqa: E402
+import rtf  # noqa: E402
 from compound import Compound  # noqa: E402
 from package import Package, Unreadable  # noqa: E402
 
@@ -55,7 +57,7 @@ tr = plugin.tr
 #: disk is opened where it lies and only the parts wanted are read.
 MAX_BYTES = 512 << 20
 
-WORD = ["docx", "docm", "dotx", "dotm", "doc", "dot"]
+WORD = ["docx", "docm", "dotx", "dotm", "doc", "dot", "odt", "ott", "fodt", "rtf"]
 BOOKS = ["epub", "fb2"]
 
 #: Word 97–2003 files, and a password-protected .docx too, are compound files.
@@ -86,9 +88,17 @@ def _read(url: str):
     if head.startswith(b"PK"):
         package = Package.open(plugin, url, MAX_BYTES)
         try:
+            if odt.is_text(package):
+                return odt.convert(package, tr)
             return docx.convert(package, tr)
         finally:
             package.close()
+    if head.startswith(b"{\\rtf"):
+        # A .doc that is really RTF is common: Word itself saves one when asked
+        # for "Word 97" by some programs, and mail attachments are often both.
+        return rtf.convert(_whole(url), tr)
+    if head.lstrip().startswith(b"<") and b"opendocument" in _head(url, 4096):
+        return odt.convert_flat(_whole(url), tr)
     if head == OLE:
         raw = _whole(url)
         compound = Compound(raw)
@@ -101,10 +111,11 @@ def _read(url: str):
                 return doc.convert(raw, tr)
             except doc.DocError as failure:
                 raise Unreadable(str(failure))
-    if head.startswith(b"{\\rtf"):
-        raise Unreadable(tr(
-            "This is a Rich Text file with a Word name. This viewer does not "
-            "read RTF yet. Press Enter to open it in the system's own application."))
+    named = url.lower().rsplit(".", 1)[-1]
+    if named in ("odt", "ott", "fodt"):
+        raise Unreadable(tr("This is not an OpenDocument file, whatever its name says."))
+    if named == "rtf":
+        raise Unreadable(tr("This is not a Rich Text file, whatever its name says."))
     raise Unreadable(tr("This is not a Word document, whatever its name says."))
 
 

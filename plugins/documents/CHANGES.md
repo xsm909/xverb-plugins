@@ -1,5 +1,11 @@
 # Documents as Markdown: changes
 
+## 0.2.0 — 2026-09-27
+
+- OpenDocument text (.odt, .ott, and the flat .fodt) and Rich Text (.rtf) are read as documents too.
+- A .doc's numbered lists have their numbers, counted as Word counts them, and its comments say who wrote them.
+- A .doc with one comment no longer shows a second, empty one.
+
 ## 0.1.1 — 2026-09-26
 
 - Needs plugin API level 2, Xverb 1.1.0.502: an older Xverb lists it greyed with Install turned off, rather than installing something it cannot draw.

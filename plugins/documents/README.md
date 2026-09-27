@@ -1,6 +1,6 @@
 # Documents as Markdown
 
-A Word file — `.docx` or the older `.doc` — or a book — EPUB or FictionBook — read as a **document**, not laid out as pages — the same idea as
+A Word file — `.docx` or the older `.doc` —, OpenDocument text (`.odt`), Rich Text (`.rtf`), or a book — EPUB or FictionBook — read as a **document**, not laid out as pages — the same idea as
 PDF as Markdown, for files that were text to begin with.
 
 F3 on a `.docx` gives the headings, the lists, the tables, the links, the notes,
@@ -48,12 +48,39 @@ inline ones through their block in the `Data` stream and floating ones through
 their anchor and shape; a picture kept as EMF or WMF is its caption, naming the
 format.
 
-Not yet: list numbers in a .doc (its list items are bullets), comments' authors,
-and anything Word 95 or older wrote.
+**List numbers** are counted from the list tables (`PlfLst` and the
+overrides in `PlfLfo`) the way Word counts them — `2.2.1.` under `2.2.`, a
+bullet as a bullet — and **a comment's author** comes from the list of names
+the comments point into. Anything Word 95 or older wrote says so and is not
+read.
 
 **Which reader is decided by the file, not by its name**: a `.doc` that is
-really a `.docx` is read as one, and a Rich Text file named `.doc` says what it
-is.
+really a `.docx`, an `.odt` or a Rich Text file is read as what it is.
+
+## OpenDocument: `.odt`, `.ott`, `.fodt`
+
+What LibreOffice, OpenOffice and the exports of Google Docs and Pages write.
+Headings are `text:h` at their outline level, or paragraphs in a style that
+carries one; bold, italic and struck through are followed up the style chain;
+a list's labels are counted from its list style (`1`, `a`, `A`, `i`, `I`, with
+their prefix and suffix, or a bullet). Notes and comments — with the author
+and the date — go to the end, tracked changes are read accepted, the table of
+contents is left out, pictures are drawn at their size. A document protected
+with a password says so. The flat `.fodt` is one XML file and is read the
+same, its pictures named rather than drawn.
+
+## Rich Text: `.rtf`
+
+Read from the bytes: a byte in the code page of the document or of the font
+in force (Word writes Russian as `\fcharset204`, which is 1251), `\uN`
+characters and the pairs that make one past U+FFFF, and every group that is
+not text — fonts, colours, headers, footers, the list table, anything marked
+`\*` and unknown — stepped over. Headings are the styles named `heading N`
+or a paragraph's outline level; list labels are taken as Word wrote them in
+`\listtext`; tables, `HYPERLINK` fields, notes and comments with their
+authors come through; PNG and JPEG pictures are drawn and metafiles named. A
+file from TextEdit or WordPad has no headings, and gets its short bold
+paragraphs as headings, as a Word file with none does.
 
 ## Books: EPUB and FictionBook
 
@@ -95,6 +122,8 @@ older Xverb lists this plugin greyed, with Install turned off.
 | `epub.py` | EPUB: container, package, contents, cover, DRM |
 | `xhtml.py` | A chapter's XHTML as Markdown, with headings from the contents |
 | `fb2.py` | FictionBook, and the probe for .fb2.zip |
+| `odt.py` | OpenDocument text, packaged and flat |
+| `rtf.py` | Rich Text Format |
 | `compound.py` | The compound file a .doc lives in, the same reader the sheets plugin has |
 | `mdtext.py` | The Markdown every converter writes: escaping, marks, tables |
 | `package.py` | A zip opened where it lies, and opened again when a picture is wanted |
@@ -105,6 +134,9 @@ older Xverb lists this plugin greyed, with Install turned off.
 PYTHONPATH=<xverb>/assets/python python3 selftest.py [documents…]
 ```
 
-The Word files are built by the test in the shape Word writes them; they are
-not files Word saved. Real documents named on the command line are read and
+The Word, OpenDocument and Rich Text files are built by the test in the shape
+their writers write them. Three in `fixtures/` were saved by real programs:
+`textutil.doc` by macOS, `poi-Lists.doc` and `tika-testComment.doc` by Word —
+the last two from the test files of Apache POI and Apache Tika, under the
+Apache License 2.0. Real documents named on the command line are read and
 summarised.

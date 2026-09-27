@@ -50,8 +50,15 @@ An inline picture's block names its entry; a picture floating over the text is
 a shape anchored at a `\x08`, found through the anchors table (`PlcSpaMom`)
 by its position, its shape by id, and its entry by the shape's `pib`.
 
-Left for later: list numbering — a list paragraph is a bullet here, its
-number is in structures of its own.
+**List numbers** are in two tables of their own: the lists (`PlfLst`), each
+with a level's format, its start and the text around its number — `%1.`
+written with the level's index where the number goes — and the overrides
+(`PlfLfo`) a paragraph's `ilfo` points at, which name a list by its id and
+may start a level somewhere else. Counted as Word counts: per list, a deeper
+level starting again under a new higher one.
+
+**A comment's author** is an index into a list of names (`GrpXstAtnOwners`),
+kept in the comment's reference record beside the initials.
 """
 
 from __future__ import annotations
@@ -62,6 +69,7 @@ from typing import Callable, Dict, List, Optional, Tuple
 
 import mdtext
 from compound import Compound
+from docx import _format
 from mdtext import Span
 
 from xverb import Picture, picture_size
@@ -74,6 +82,11 @@ _TABLE_ONE = 0x0200
 _FCLCB = 0x9A
 _STSHF, _PLCFFNDREF, _PLCFFNDTXT, _PLCFANDREF, _PLCFANDTXT = 1, 2, 3, 4, 5
 _PLCFBTECHPX, _PLCFBTEPAPX, _CLX, _PLCSPAMOM, _PLCFENDREF, _PLCFENDTXT, _DGGINFO = 12, 13, 33, 40, 46, 47, 50
+_GRPXSTATNOWNERS, _PLFLST, _PLFLFO = 36, 73, 74
+
+#: A list level's number format (`nfc`) as the Word 2007 name `docx` counts in.
+_NFC = {0: "decimal", 1: "upperRoman", 2: "lowerRoman", 3: "upperLetter",
+        4: "lowerLetter", 22: "decimalZero", 23: "bullet", 255: "none"}
 
 # Paragraph properties this reads, by sprm.
 _IN_TABLE, _TTP, _INNER_TTP, _INNER_CELL = 0x2416, 0x2417, 0x244C, 0x244B
@@ -179,6 +192,7 @@ class Document:
         self._styles()
         self._papx()
         self._chpx()
+        self._lists()
 
     def _fc(self, index: int) -> Tuple[int, int]:
         if index >= self.pairs:
@@ -542,6 +556,109 @@ class Document:
                 return self.runs[lo][2]
         return Paragraph()
 
+    # Lists.
+
+    def _lists(self) -> None:
+        """The list definitions and their overrides, as far as a number needs."""
+        #: lsid → level → (format, number text, start)
+        self.lists: Dict[int, Dict[int, Tuple[str, str, int]]] = {}
+        #: ilfo - 1 → (lsid, level → start override)
+        self.overrides: List[Tuple[int, Dict[int, int]]] = []
+        try:
+            self._read_lists()
+            self._read_overrides()
+        except (struct.error, IndexError):
+            # A list table that does not add up leaves every item a bullet,
+            # which is what this reader did before it read them at all.
+            self.lists, self.overrides = {}, []
+
+    def _read_lists(self) -> None:
+        fc, lcb = self._fc(_PLFLST)
+        data = self.table[fc:fc + lcb]
+        if len(data) < 2:
+            return
+        count = struct.unpack_from("<h", data, 0)[0]
+        at = 2
+        heads = []
+        for _ in range(max(0, count)):
+            lsid = struct.unpack_from("<i", data, at)[0]
+            simple = data[at + 26] & 0x01
+            heads.append((lsid, 1 if simple else 9))
+            at += 28
+        # The levels follow the whole array, in its order, in the table
+        # stream at the end of what the FIB says is the list table's size.
+        at = fc + at
+        table = self.table
+        for lsid, levels in heads:
+            found: Dict[int, Tuple[str, str, int]] = {}
+            for level in range(levels):
+                start = struct.unpack_from("<i", table, at)[0]
+                nfc = table[at + 4]
+                papx, chpx = table[at + 25], table[at + 24]
+                at += 28 + papx + chpx
+                cch = struct.unpack_from("<H", table, at)[0]
+                text = table[at + 2:at + 2 + cch * 2].decode("utf-16-le", "replace")
+                at += 2 + cch * 2
+                found[level] = (_NFC.get(nfc, "decimal"), text, start)
+            self.lists[lsid] = found
+
+    def _read_overrides(self) -> None:
+        fc, lcb = self._fc(_PLFLFO)
+        data = self.table[fc:]
+        if lcb < 4:
+            return
+        count = struct.unpack_from("<i", data, 0)[0]
+        heads = []
+        for i in range(max(0, count)):
+            lsid = struct.unpack_from("<i", data, 4 + i * 16)[0]
+            levels = data[4 + i * 16 + 12]
+            heads.append((lsid, levels))
+        at = 4 + count * 16
+        for lsid, levels in heads:
+            at += 4  # the cp nobody uses
+            starts: Dict[int, int] = {}
+            for _ in range(levels):
+                start = struct.unpack_from("<i", data, at)[0]
+                flags = struct.unpack_from("<I", data, at + 4)[0]
+                at += 8
+                level, starts_again, formatted = flags & 0x0F, flags & 0x10, flags & 0x20
+                if starts_again:
+                    starts[level] = start
+                if formatted:
+                    # A whole level of its own follows; its number is not
+                    # read, only stepped over.
+                    papx, chpx = data[at + 25], data[at + 24]
+                    at += 28 + papx + chpx
+                    at += 2 + struct.unpack_from("<H", data, at)[0] * 2
+            self.overrides.append((lsid, starts))
+
+    # Who wrote the comments.
+
+    def comment_authors(self) -> List[str]:
+        """Each comment's author, in the order of the comments; an empty name
+        where the file does not say."""
+        fc, lcb = self._fc(_GRPXSTATNOWNERS)
+        names: List[str] = []
+        data = self.table[fc:fc + lcb]
+        at = 0
+        while at + 2 <= len(data):
+            cch = struct.unpack_from("<H", data, at)[0]
+            names.append(data[at + 2:at + 2 + cch * 2].decode("utf-16-le", "replace"))
+            at += 2 + cch * 2
+        fc, lcb = self._fc(_PLCFANDREF)
+        refs = self.table[fc:fc + lcb]
+        # n + 1 positions, then n records of 30 bytes; the author's index is
+        # the sixth word of each, after the initials.
+        count = (len(refs) - 4) // 34
+        authors = []
+        for i in range(max(0, count)):
+            at = (count + 1) * 4 + i * 30 + 20
+            if at + 2 > len(refs):
+                break
+            index = struct.unpack_from("<h", refs, at)[0]
+            authors.append(names[index] if 0 <= index < len(names) else "")
+        return authors
+
     def plc(self, index: int) -> List[int]:
         fc, lcb = self._fc(index)
         if lcb < 4:
@@ -554,6 +671,49 @@ class Document:
 _MAYBE_LONGEST = 150
 
 _HIDING_FIELDS = ("TOC", "INDEX", "XE", "TC")
+
+
+class _Numbers:
+    """List items counted as the document is read, the way Word counts them."""
+
+    def __init__(self, doc: "Document"):
+        self.doc = doc
+        self.counts: Dict[int, Dict[int, int]] = {}
+        self.started: set = set()
+
+    def next(self, ilfo: int, ilvl: int) -> Optional[Tuple[str, str]]:
+        """(kind, label): ``bullet``, ``number`` or ``none``; None where the
+        list tables do not say."""
+        doc = self.doc
+        if not 0 < ilfo <= len(doc.overrides):
+            return None
+        lsid, starts = doc.overrides[ilfo - 1]
+        levels = doc.lists.get(lsid)
+        if not levels:
+            return None
+        level = ilvl if ilvl in levels else max(levels)
+        fmt, text, start = levels[level]
+        counts = self.counts.setdefault(lsid, {})
+        if ilfo not in self.started:
+            self.started.add(ilfo)
+            for at, value in starts.items():
+                counts[at] = value - 1
+        counts[level] = counts.get(level, start - 1) + 1
+        for deeper in [k for k in counts if k > level]:
+            del counts[deeper]
+        if fmt == "bullet":
+            return "bullet", ""
+        if fmt == "none" or not text:
+            return "none", ""
+        label = []
+        for ch in text:
+            code = ord(ch)
+            if code < 9:
+                shown, _, first = levels.get(code, ("decimal", "", 1))
+                label.append(_format(counts.get(code, first), shown))
+            else:
+                label.append(ch)
+        return "number", "".join(label).strip()
 
 
 class _Reader:
@@ -660,10 +820,17 @@ class _Reader:
         finally:
             self.fields = saved
 
-    def texts(self, ref_index: int, txt_index: int, base: int) -> List[str]:
+    def texts(self, ref_index: int, txt_index: int, base: int, record: int = 2) -> List[str]:
+        """The notes or comments, each read from its stretch of the text.
+
+        How many there are is the reference table's size over its entry: a
+        position and a [record] — two bytes for a note, thirty for a
+        comment. Counting a comment's thirty as two read one comment as two,
+        the second of them empty."""
         doc = self.doc
         bounds = doc.plc(txt_index)
-        count = len(doc.plc(ref_index)) // 2
+        _, lcb = doc._fc(ref_index)
+        count = max(0, (lcb - 4) // (4 + record))
         return [self.small(base + bounds[i], base + bounds[i + 1])
                 for i in range(count) if i + 1 < len(bounds)]
 
@@ -677,9 +844,20 @@ def convert(raw: bytes, tr: Callable[..., str]) -> Result:
     atn_base = ccp_text + ccp_ftn + ccp_hdd
     footnotes = reader.texts(_PLCFFNDREF, _PLCFFNDTXT, ccp_text) if ccp_ftn else []
     endnotes = reader.texts(_PLCFENDREF, _PLCFENDTXT, atn_base + ccp_atn) if ccp_edn else []
-    reader.comments = reader.texts(_PLCFANDREF, _PLCFANDTXT, atn_base) if ccp_atn else []
+    reader.comments = reader.texts(_PLCFANDREF, _PLCFANDTXT, atn_base, record=30) if ccp_atn else []
+    if reader.comments:
+        # "Anna: the text", as a comment is written from every other format.
+        try:
+            authors = doc.comment_authors()
+        except struct.error:
+            authors = []
+        reader.comments = [
+            (mdtext.escape(authors[i]) + ": " if i < len(authors) and authors[i] else "") + text
+            for i, text in enumerate(reader.comments)
+        ]
     reader.note_queue = footnotes + endnotes
 
+    numbers = _Numbers(doc)
     out: List[object] = []
     table: List[List[str]] = []
     row: List[str] = []
@@ -738,12 +916,20 @@ def convert(raw: bytes, tr: Callable[..., str]) -> Result:
         level = doc.heading(props.istd)
         if props.outline is not None and props.outline < 9:
             level = props.outline + 1
+        label = numbers.next(props.ilfo, props.ilvl) if props.ilfo > 0 and text else None
+        indent = "  " * min(props.ilvl, 8)
         if text:
             if level:
                 styled += 1
+                if label and label[0] == "number":
+                    text = mdtext.escape(label[1]) + " " + text
                 out.append(mdtext.heading(level, text))
-            elif props.ilfo > 0:
-                out.append("  " * min(props.ilvl, 8) + "- " + text)
+            elif label and label[0] == "number" and re.fullmatch(r"\d+[.)]", label[1]):
+                out.append(indent + label[1][:-1] + ". " + text)
+            elif label and label[0] == "number":
+                out.append(indent + mdtext.line_start(mdtext.escape(label[1]) + " " + text))
+            elif props.ilfo > 0 and not (label and label[0] == "none"):
+                out.append(indent + "- " + text)
             else:
                 plain = "".join(p.text for p in pieces if not p.raw)
                 bold = all(p.bold or not p.text.strip() for p in pieces if not p.raw)

@@ -422,6 +422,180 @@ with zipfile.ZipFile(buffer, "w") as z:
     z.writestr("photo.jpg", b"x")
 check("fb2.zip: and no to any other zip", not fb2.in_zip(buffer.getvalue()[:4096]))
 
+# OpenDocument, as LibreOffice writes it: text:h with outline levels, lists
+# described by a list style, a table with a header row and a merged cell, a
+# note, a comment with its author, a picture, a tracked change, and the meta.
+import odt  # noqa: E402
+
+ODF = ('xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" '
+       'xmlns:style="urn:oasis:names:tc:opendocument:xmlns:style:1.0" '
+       'xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0" '
+       'xmlns:table="urn:oasis:names:tc:opendocument:xmlns:table:1.0" '
+       'xmlns:draw="urn:oasis:names:tc:opendocument:xmlns:drawing:1.0" '
+       'xmlns:fo="urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0" '
+       'xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:dc="http://purl.org/dc/elements/1.1/" '
+       'xmlns:meta="urn:oasis:names:tc:opendocument:xmlns:meta:1.0" '
+       'xmlns:svg="urn:oasis:names:tc:opendocument:xmlns:svg-compatible:1.0"')
+ODT_CONTENT = """<office:document-content %s><office:automatic-styles>
+<style:style style:name="T1" style:family="text"><style:text-properties fo:font-weight="bold"/></style:style>
+<style:style style:name="T2" style:family="text"><style:text-properties fo:font-style="italic"/></style:style>
+<style:style style:name="T3" style:family="text"><style:text-properties style:text-line-through-style="solid"/></style:style>
+<style:style style:name="P1" style:family="paragraph" style:parent-style-name="Heading_20_2"/>
+<text:list-style style:name="L1"><text:list-level-style-bullet text:level="1" text:bullet-char="•"/>
+ <text:list-level-style-bullet text:level="2" text:bullet-char="◦"/></text:list-style>
+<text:list-style style:name="L2"><text:list-level-style-number text:level="1" style:num-format="1" style:num-suffix="."/>
+ <text:list-level-style-number text:level="2" style:num-format="a" style:num-suffix=")"/></text:list-style>
+</office:automatic-styles><office:body><office:text>
+<text:tracked-changes><text:changed-region text:id="c1"><text:deletion><text:p>gone</text:p></text:deletion></text:changed-region></text:tracked-changes>
+<text:sequence-decls/>
+<text:table-of-content><text:index-body><text:p>Contents entry 1</text:p></text:index-body></text:table-of-content>
+<text:h text:outline-level="1">Договор</text:h>
+<text:p>Plain <text:span text:style-name="T1">bold</text:span>, <text:span text:style-name="T2">italic</text:span>,<text:s text:c="3"/><text:span text:style-name="T3">struck</text:span> and a <text:a xlink:href="https://example.org">link</text:a>.<text:note text:note-class="footnote"><text:note-citation>1</text:note-citation><text:note-body><text:p>The note.</text:p></text:note-body></text:note></text:p>
+<text:p>A *star* and file_name<text:change text:change-id="c1"/>.<office:annotation><dc:creator>Анна</dc:creator><dc:date>2026-09-20T10:00:00</dc:date><text:p>Check this.</text:p></office:annotation></text:p>
+<text:p text:style-name="P1">Heading by style</text:p>
+<text:list text:style-name="L1"><text:list-item><text:p>first point</text:p><text:list><text:list-item><text:p>inner point</text:p></text:list-item></text:list></text:list-item><text:list-item><text:p>second point</text:p></text:list-item></text:list>
+<text:list text:style-name="L2"><text:list-item><text:p>one</text:p><text:list><text:list-item><text:p>one-a</text:p></text:list-item><text:list-item><text:p>one-b</text:p></text:list-item></text:list></text:list-item><text:list-item><text:p>two</text:p></text:list-item></text:list>
+<table:table><table:table-column table:number-columns-repeated="3"/>
+<table:table-header-rows><table:table-row><table:table-cell><text:p>Name</text:p></table:table-cell><table:table-cell><text:p>Age</text:p></table:table-cell><table:table-cell><text:p>Note</text:p></table:table-cell></table:table-row></table:table-header-rows>
+<table:table-row><table:table-cell table:number-columns-spanned="2"><text:p>Anna | A</text:p></table:table-cell><table:covered-table-cell/><table:table-cell><text:p>x</text:p></table:table-cell></table:table-row>
+</table:table>
+<text:p><draw:frame draw:name="Photo" svg:width="1in" svg:height="0.5in"><draw:image xlink:href="Pictures/a.png"/><svg:title>A photo</svg:title></draw:frame></text:p>
+<text:p><text:soft-page-break/>Last.</text:p>
+</office:text></office:body></office:document-content>""" % ODF
+ODT_STYLES = """<office:document-styles %s><office:styles>
+<style:style style:name="Heading_20_2" style:display-name="Heading 2" style:family="paragraph" style:default-outline-level="2"/>
+</office:styles></office:document-styles>""" % ODF
+ODT_META = """<office:document-meta %s><office:meta><dc:title>Договор аренды</dc:title>
+<meta:initial-creator>Anna</meta:initial-creator><meta:creation-date>2026-09-01T09:00:00</meta:creation-date>
+<meta:generator>LibreOffice/24.2$MacOSX_AARCH64 LibreOffice_project/x</meta:generator>
+<meta:document-statistic meta:page-count="3"/></office:meta></office:document-meta>""" % ODF
+
+
+def odt_package(content=ODT_CONTENT, encrypted=False):
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as z:
+        z.writestr("mimetype", "application/vnd.oasis.opendocument.text")
+        z.writestr("content.xml", content)
+        z.writestr("styles.xml", ODT_STYLES)
+        z.writestr("meta.xml", ODT_META)
+        z.writestr("Pictures/a.png", png(4, 2))
+        z.writestr("META-INF/manifest.xml",
+                   '<manifest:manifest xmlns:manifest="urn:oasis:names:tc:opendocument:xmlns:manifest:1.0">'
+                   '<manifest:file-entry manifest:full-path="content.xml">%s</manifest:file-entry></manifest:manifest>'
+                   % ('<manifest:encryption-data/>' if encrypted else ''))
+    raw_odt = buffer.getvalue()
+    return Package(lambda: zipfile.ZipFile(io.BytesIO(raw_odt)))
+
+
+found = odt.convert(odt_package(), tr)
+got = lines(found.markdown)
+check("odt: is a text document", odt.is_text(odt_package()))
+check("odt: a heading with its level", "# Договор" in got, repr(got))
+check("odt: a paragraph in a heading's style is a heading", "## Heading by style" in got, repr(got))
+check("odt: the contents is left out", "Contents entry 1" not in found.markdown)
+check("odt: the tracked deletion is not in the text", "gone" not in found.markdown and found.changes == 1)
+check("odt: bold, italic, struck, spaces, link and a note's mark",
+      "Plain **bold**, *italic*, ~~struck~~ and a [link](https://example.org).\\[1\\]" in got, repr(got))
+check("odt: marks escaped", "A \\*star\\* and file\\_name.\\[comment 1\\]" in got, repr(got))
+check("odt: bullets, nested", "- first point" in got and "  - inner point" in got and "- second point" in got, repr(got))
+check("odt: numbers in their formats", "1. one" in got and "  a) one-a" in got and "  b) one-b" in got
+      and "2. two" in got, repr(got))
+check("odt: a header row, a merged cell, an escaped pipe",
+      "| Name | Age | Note |" in got and "| Anna \\| A |  | x |" in got, repr(got))
+check("odt: a picture with its size", "![A photo](picture:p1)" in got
+      and found.pictures["p1"].read() == png(4, 2) and found.pictures["p1"].width == 96, repr(got))
+check("odt: notes and comments at the end, with the author",
+      "\\[1\\] The note." in got and "**Comment 1** — Анна, 2026-09-20: Check this." in got, repr(got[-4:]))
+check("odt: meta", found.meta.get("title") == "Договор аренды" and found.meta.get("creator") == "Anna"
+      and found.meta.get("Application") == "LibreOffice" and found.meta.get("Pages") == "3", repr(found.meta))
+try:
+    odt.convert(odt_package(encrypted=True), tr)
+    check("odt: a password is said", False)
+except Exception as failure:  # noqa: BLE001
+    check("odt: a password is said", "password" in str(failure), str(failure))
+flat = ('<office:document %s office:mimetype="application/vnd.oasis.opendocument.text">'
+        '<office:body><office:text><text:h text:outline-level="2">Flat</text:h><text:p>body</text:p>'
+        '</office:text></office:body></office:document>' % ODF).encode()
+got = lines(odt.convert_flat(flat, tr).markdown)
+check("fodt: the flat form too", got == ["## Flat", "body"], repr(got))
+
+# Rich Text, as Word writes it in Russian: 1251 bytes in a Cyrillic font,
+# heading styles in the style sheet, list labels in \listtext, a table with a
+# header row, a link field, a note, a comment, a picture beside its metafile
+# twin, a header and a group nobody knows — and TextEdit's, with none of that.
+import rtf  # noqa: E402
+
+
+def cyr(text):
+    return "".join("\\'%02x" % b if b > 127 else chr(b) for b in text.encode("cp1251"))
+
+
+RTF = ("{\\rtf1\\ansi\\ansicpg1251\\deff0"
+       "{\\fonttbl{\\f0\\froman\\fcharset204 Times New Roman;}{\\f3\\fnil\\fcharset2 Symbol;}}"
+       "{\\colortbl;\\red0\\green0\\blue0;}"
+       "{\\stylesheet{\\s0 Normal;}{\\s1\\sbasedon0 heading 1;}{\\s2\\sbasedon0 heading 2;}"
+       "{\\*\\cs10\\additive Default Paragraph Font;}}"
+       "{\\info{\\title " + cyr("Договор") + "}{\\author Anna}{\\creatim\\yr2026\\mo9\\dy1}}"
+       "{\\header \\pard Running header\\par}"
+       "{\\*\\unknowndest secret}"
+       "\\pard\\plain\\s1 " + cyr("Договор аренды") + "\\par"
+       "\\pard\\plain " + cyr("Обычный") + " {\\b bold} {\\i italic} {\\strike struck} "
+       "\\u1046\\'c6x*y_z{\\super\\chftn}{\\footnote\\pard\\plain{\\super\\chftn} The note.\\par}"
+       " {\\field{\\*\\fldinst{HYPERLINK \"https://example.org\"}}{\\fldrslt{site}}} after."
+       "{\\*\\atnid AN}{\\*\\atnauthor Anna}\\chatn{\\*\\annotation{\\*\\atnref 1}Check it.}\\par"
+       "\\pard\\plain\\s2 Second\\par"
+       "{\\listtext\\pard\\plain\\f3 \\'b7\\tab}\\pard\\plain\\ls1\\ilvl0 first point\\par"
+       "{\\listtext\\pard\\plain\\f3 \\'b7\\tab}\\pard\\plain\\ls1\\ilvl1 inner point\\par"
+       "{\\listtext\\pard\\plain 1.\\tab}\\pard\\plain\\ls2\\ilvl0 one\\par"
+       "{\\listtext\\pard\\plain 2.\\tab}\\pard\\plain\\ls2\\ilvl0 two\\par"
+       "\\trowd\\trhdr\\cellx1000\\cellx2000\\pard\\intbl Name\\cell Age\\cell\\row"
+       "\\trowd\\cellx1000\\cellx2000\\pard\\intbl Anna | A\\cell 30\\par line two\\cell\\row"
+       "\\pard\\plain {\\*\\shppict{\\pict\\pngblip\\picwgoal1500\\pichgoal750 " + png(4, 2).hex() + "}}"
+       "{\\nonshppict{\\pict\\wmetafile8 0102}}After the picture.\\par"
+       "}").encode("latin-1")
+found = rtf.convert(RTF, tr)
+got = lines(found.markdown)
+check("rtf: a heading style, in 1251 bytes", "# Договор аренды" in got, repr(got))
+check("rtf: a second level", "## Second" in got)
+check("rtf: a header, and a group nobody knows, are not text",
+      "Running header" not in found.markdown and "secret" not in found.markdown)
+check("rtf: bold, italic, struck, \\u with its fallback skipped, escaping, a note's mark, a link, a comment",
+      "Обычный **bold** *italic* ~~struck~~ Жx\\*y\\_z\\[1\\] [site](https://example.org) after.\\[comment 1\\]" in got,
+      repr(got))
+check("rtf: a bullet from the Symbol font, nested", "- first point" in got and "  - inner point" in got, repr(got))
+check("rtf: numbers as written", "1. one" in got and "2. two" in got, repr(got))
+check("rtf: a table with its header row and a cell of two lines",
+      "| Name | Age |" in got and "| Anna \\| A | 30 · line two |" in got, repr(got))
+check("rtf: the PNG, at its size, once, after its paragraph",
+      "![](picture:p1)" in got and len(found.pictures) == 1 and found.pictures["p1"].read() == png(4, 2)
+      and found.pictures["p1"].width == 100 and got.index("![](picture:p1)") > got.index("After the picture."),
+      repr(got))
+check("rtf: notes and comments at the end, with the author",
+      "\\[1\\] The note." in got and "**Comment 1** — Anna: Check it." in got, repr(got[-4:]))
+check("rtf: what the file says about itself", found.meta.get("title") == "Договор" and found.meta.get("creator") == "Anna",
+      repr(found.meta))
+COCOA = ("{\\rtf1\\ansi\\ansicpg1252\\cocoartf2870{\\fonttbl\\f0\\froman\\fcharset0 Times-Bold;\\f1\\froman\\fcharset0 Times-Roman;}"
+         "\\pard\\f0\\b\\fs48 \\uc0\\u1043 \\u1083 \\u1072 \\u1074 \\u1072 \\\n"
+         "\\pard\\f1\\b0\\fs24 Body text here.\\\n"
+         "{\\listtext\t1\t}\\ls2\\ilvl0 first\\\n}").encode("latin-1")
+got = lines(rtf.convert(COCOA, tr).markdown)
+check("rtf: TextEdit's, headings guessed from bold, a bare number", got == ["# Глава", "Body text here.", "1. first"],
+      repr(got))
+
+# Word 97–2003 files saved by Word itself: numbered lists at several levels
+# (Apache POI's Lists.doc) and a comment with its author (Apache Tika's).
+with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures", "poi-Lists.doc"), "rb") as handle:
+    got = lines(doc.convert(handle.read(), tr).markdown)
+check(".doc: numbers counted as Word counts them",
+      "1. Ordered list 1" in got and "3. OL 3" in got and "  2.1. OL 2.1" in got
+      and "      2.2.2.1. OL 2.2.2.1" in got, repr([g for g in got if "OL" in g]))
+check(".doc: bullets still bullets, nested", "- UL 2" in got and "  - ML 2:1" in got and "    - ML 3:1" in got, repr(got))
+with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures", "tika-testComment.doc"), "rb") as handle:
+    found = doc.convert(handle.read(), tr)
+got = lines(found.markdown)
+check(".doc: one comment, marked, with who wrote it",
+      found.comments == 1 and "**Comment 1** — Michael McCandless: Here is a comment" in got, repr(got))
+
 for path in sys.argv[1:]:
     with open(path, "rb") as handle:
         raw_file = handle.read()
@@ -429,6 +603,12 @@ for path in sys.argv[1:]:
         found = epub.convert(Package(lambda: zipfile.ZipFile(io.BytesIO(raw_file))), tr)
     elif path.lower().endswith(".fb2"):
         found = fb2.convert(raw_file, tr)
+    elif raw_file.startswith(b"{\\rtf"):
+        found = rtf.convert(raw_file, tr)
+    elif path.lower().endswith(".fodt"):
+        found = odt.convert_flat(raw_file, tr)
+    elif raw_file.startswith(b"PK") and path.lower().endswith((".odt", ".ott")):
+        found = odt.convert(Package(lambda: zipfile.ZipFile(io.BytesIO(raw_file))), tr)
     elif raw_file.startswith(b"PK"):
         found = docx.convert(Package(lambda: zipfile.ZipFile(io.BytesIO(raw_file))), tr)
     else:
