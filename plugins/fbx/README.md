@@ -24,9 +24,12 @@ host poses the bones by the same arithmetic.
 | `mayafile.py` | Maya scenes: the `.ma` script's statements, transforms, meshes stored and rebuilt. |
 | `mayabinary.py` | Maya Binary: the IFF chunks of a `.mb` into the same scene. |
 | `houdinigeo.py` | Houdini geometry: binary JSON, Blosc and LZ4, paged attributes, polygons, tetrahedra, the classic `.geo`. |
+| `usdcrate.py` | USD's binary layer, the crate: its sections, LZ4 and integer coding, values. |
+| `usdtext.py` | USD's text layer, `#usda`, into the same specs the crate gives. |
+| `usdfile.py` | A USD stage: layers composed — sublayers, variants, references, payloads, inherits — and drawn. |
 | `main.py` | The contributions. |
 | `selftest.py` | Runs the reader over a folder of real files. |
-| `mayatest.py`, `houdinitest.py` | Maya and Houdini, checked on scenes written in the test. |
+| `mayatest.py`, `houdinitest.py`, `usdtest.py` | Maya, Houdini and USD, checked on scenes written in the test. |
 
 ## Reading FBX
 
@@ -109,6 +112,29 @@ with `N`, `uv` and `Cd` where the file has them; a tetrahedral mesh is drawn
 as its skin. Curves, particles and packed primitives are counted and named.
 A `.bgeo.sc` is claimed by what it begins with, `scf1`, since the host only
 sees its last extension.
+
+## USD: `.usd`, `.usda`, `.usdc`, `.usdz`
+
+Both kinds of layer are read here, without USD: the text one, and the binary
+*crate* with its LZ4 and its delta-coded integers undone in plain Python. A
+`.usdz` is read from the zip, its textures with it.
+
+A USD file is rarely its whole picture, so the stage is **composed** before
+anything is drawn: sublayers, the selected variant of each variant set (the
+first where none is chosen), references and payloads — each followed into its
+own file, read as the composition reaches it — and inherited classes. Paths
+move with a reference: a material bound inside an asset's own file is found
+once the asset sits in a kitchen. What is left out changes *when*, not what:
+layer offsets and value clips; an animated value is drawn at its first frame.
+
+Drawn: meshes with their normals, `st` coordinates and display colour, split
+by `GeomSubset` where a subset wears its own material; the shapes USD
+describes by their numbers — cube, sphere, cylinder, cone, capsule, plane —
+made here; a `UsdPreviewSurface`'s colour or texture, through a node graph
+if it sits in one. Invisible prims, guides, classes and prims that are only
+`over` are not. Point instancers, curves, points and volumes are counted and
+named. Pixar's Kitchen_set, 229 layers of both kinds, composes in about two
+seconds.
 
 ## Checking it
 

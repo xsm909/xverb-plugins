@@ -49,11 +49,14 @@ import gltfscene  # noqa: E402
 import houdinigeo  # noqa: E402
 import mayafile  # noqa: E402
 import objfile  # noqa: E402
+import usdcrate  # noqa: E402
+import usdfile  # noqa: E402
+import usdtext  # noqa: E402
 from scene import Scene, summarise  # noqa: E402
 
 #: What this can be pointed at. One viewer for all of them: which format a file
 #: is, is the reader's business and nobody else's.
-MODELS = ["fbx", "glb", "gltf", "obj", "ma", "mb", "geo", "bgeo"]
+MODELS = ["fbx", "glb", "gltf", "obj", "ma", "mb", "geo", "bgeo", "usd", "usda", "usdc", "usdz"]
 
 #: Houdini's compressed geometry, `.bgeo.sc`. The host sees only the last
 #: extension, and `.sc` is also Scala and SuperCollider, so it is claimed by
@@ -114,6 +117,15 @@ class Model:
             self.scene = mayafile.read(data)
             self.parts = None
             self.note = None
+        elif extension in ("usd", "usda", "usdc", "usdz") or data[:8] == usdcrate.MAGIC \
+                or data[:5] == b"#usda":
+            self.kind = "usd"
+            # The root is read already; the layers it names are read as the
+            # composition reaches them, and each reading moves the bar.
+            self.stage = usdfile.read(url, lambda key: data if key == url else plugin.read_file(
+                key, max_bytes=MAX_BYTES), report=lambda n: plugin.progress(min(0.95, 0.5 + n / 400)))
+            self.parts = None
+            self.note = None
         elif data[:4] == gltffile.MAGIC or head == b"{":
             self.kind = "gltf"
             self.document = gltffile.parse(data)
@@ -137,6 +149,10 @@ class Model:
             if self.parts is None:
                 self.parts, self.note = mayafile.meshes(self.scene)
                 self._references(self.url, self.scene, {self.url}, 0)
+            return self.parts, self.note
+        if self.kind == "usd":
+            if self.parts is None:
+                self.parts, self.note = usdfile.meshes(self.stage)
             return self.parts, self.note
         if self.kind == "obj":
             self.parts, note = objfile.meshes(
@@ -199,6 +215,9 @@ class Model:
             facts["referencesFound"] = note.get("referencesFound", [])
             facts["referencesMissing"] = note.get("referencesMissing", [])
             return facts
+        if self.kind == "usd":
+            parts, note = self.meshes()
+            return usdfile.summarise(self.stage, parts, note, self.size)
         if self.kind == "obj":
             if self.parts is None:
                 self.meshes()
@@ -210,7 +229,7 @@ class Model:
     def clips(self, parts: list) -> list:
         """What moves. OBJ has nothing that can; a Maya scene's animation
         curves are counted in the report, not played."""
-        if self.kind in ("obj", "maya", "houdini"):
+        if self.kind in ("obj", "maya", "houdini", "usd"):
             return []
         if self.kind == "gltf":
             return gltfanim.clips(self.document, self.held, parts)
@@ -271,7 +290,8 @@ def _load(url: str):
     try:
         return Model(url, data), None
     except (fbxfile.FbxError, gltffile.GltfError, mayafile.MayaError,
-            houdinigeo.HoudiniError) as failure:
+            houdinigeo.HoudiniError, usdfile.UsdError, usdcrate.CrateError,
+            usdtext.UsdaError) as failure:
         return None, error(str(failure))
     except Exception as failure:  # noqa: BLE001 - a malformed file is not a crash
         return None, error("This file could not be read as a model: %s" % failure)
@@ -624,6 +644,8 @@ def _report(facts: dict, size: int, kind: str = "fbx") -> str:
     elif kind == "maya":
         lines.append("# Maya %s%s" % ("Binary" if facts["binary"] else "ASCII",
                                        " " + facts["mayaVersion"] if facts.get("mayaVersion") else ""))
+    elif kind == "usd":
+        lines.append("# USD, %s" % ("binary (crate)" if facts["binary"] else "text"))
     elif kind == "gltf":
         lines.append("# glTF 2.0")
     elif kind == "obj":
@@ -641,6 +663,10 @@ def _report(facts: dict, size: int, kind: str = "fbx") -> str:
     lines.append("| Frame rate | %g fps |" % facts["frameRate"])
     lines.append("| Objects | %s, %s connections |"
                  % (thousands(facts["objects"]), thousands(facts["connections"])))
+    if kind == "usd":
+        lines.append("| Layers | %d read%s |" % (
+            facts["usdLayers"], ", %d not found" % len(facts["usdLayersMissing"])
+            if facts["usdLayersMissing"] else ""))
     if facts["models"]:
         kinds = ", ".join(
             "%s %d" % (name, count)
@@ -682,6 +708,25 @@ def _report(facts: dict, size: int, kind: str = "fbx") -> str:
         lines.append("%d mesh(es) are the result of modelling steps only Maya can "
                      "replay: %s." % (sum(facts["unbuilt"].values()),
                                       ", ".join(sorted(facts["unbuilt"]))))
+        lines.append("")
+    if facts.get("usdLayersMissing"):
+        lines.append("## Layers not found")
+        lines.append("")
+        for name in facts["usdLayersMissing"][:20]:
+            lines.append("- `%s`" % name.replace("`", "'"))
+        lines.append("")
+    if facts.get("usdVariants"):
+        lines.append("## Variants shown")
+        lines.append("")
+        for name, chosen, count, first in facts["usdVariants"][:30]:
+            where = ("`%s`" % first.replace("`", "'")) if count == 1 else "%d prims" % count
+            lines.append("- %s = **%s** — %s" % (name, chosen, where))
+        lines.append("")
+    if facts.get("droppedMeshes"):
+        lines.append("## Not drawn")
+        lines.append("")
+        lines.append("%d mesh(es) past the %s-triangle cap of one picture." % (
+            facts["droppedMeshes"], thousands(400000)))
         lines.append("")
     if facts.get("references"):
         lines.append("## Referenced files")

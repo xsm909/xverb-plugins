@@ -1,5 +1,9 @@
 # 3D: changes
 
+## 0.16.0 — 2026-09-27
+
+- USD — .usd, .usda, .usdc and .usdz — composed and drawn: text and binary layers, sublayers, variants, references and payloads, materials and textures; Shift+F3 lists the layers read and the variants shown.
+
 ## 0.15.1 — 2026-09-27
 
 - A Maya scene that only references its model — an animation and its rig — draws the rig: the path as written if it is on this machine, or a file of the same name beside the scene.
