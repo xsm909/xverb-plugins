@@ -560,6 +560,14 @@ def tar_changing(folder: str):
         check("a rename is a rewrite", tar.getnames(), ["kept.txt"])
         check("carrying the bytes", tar.extractfile("kept.txt").read(), b"keep.txt")
 
+    # A name that is not ASCII is also in a PAX header, which wins when the
+    # tar is written: the first cut of this gave the old name back.
+    tarbox.rewrite(path, tarbox.renaming("kept.txt", "Отчёт.txt"), "gz", 6)
+    tarbox.rewrite(path, tarbox.renaming("Отчёт.txt", "отчёт за август.txt"), "gz", 6)
+    with tarfile.open(path) as tar:
+        check("a name that is not ASCII is renamed too", tar.getnames(),
+              ["отчёт за август.txt"])
+
     ok("no part file was left beside the archive",
        not any(name.endswith(tarbox.PART) for name in os.listdir(folder)))
 

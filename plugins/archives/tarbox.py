@@ -569,6 +569,12 @@ def rewrite(
                 if name is None:
                     continue
                 carried = info.replace(name=name, deep=True)
+                # A name that is not ASCII travels in a PAX header as well as
+                # in the member's own, and the header wins when it is written:
+                # renaming `Отчёт.txt` gave `Отчёт.txt` back. The header is
+                # dropped and `tarfile` writes a fresh one for the new name.
+                if name != normalised(info.name):
+                    carried.pax_headers.pop("path", None)
                 if info.isreg():
                     stream = source.extractfile(info)
                     target.addfile(carried, stream)

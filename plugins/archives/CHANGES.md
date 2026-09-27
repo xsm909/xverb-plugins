@@ -1,5 +1,9 @@
 # Archives: changes
 
+## 1.4.1 — 2026-09-27
+
+- Renaming a file or folder inside a tarball works when its name is not in Latin letters; it used to come back with the old name.
+
 ## 1.4.0 — 2026-09-25
 
 - Copying out of a ZIP or a tarball carries on from piece to piece instead of decompressing each member from its start for every 256 KB: ten 8 MB files in 0.8 seconds, where a tenth took 20.
