@@ -298,6 +298,24 @@
     "updated": "2026-09-25T06:07:50+02:00"
   },
   {
+    "folder": "rar",
+    "id": "org.xverb.rar",
+    "name": "RAR archives",
+    "version": "0.1.0",
+    "description": "RAR archives as folders, read-only: enter one and walk it, F5 out of it to unpack, F3 for a table of what is inside. RAR 4 and RAR 5, solid archives and sets of volumes. Read with libarchive; nobody but RARLAB's own program can write a RAR, so nothing here does.",
+    "runtime": "python",
+    "apiVersion": 1,
+    "platforms": [
+      "windows",
+      "macos",
+      "linux"
+    ],
+    "pythonMin": "3.12",
+    "category": "Archives",
+    "icon": "archive",
+    "updated": "2026-09-27T07:22:33+02:00"
+  },
+  {
     "folder": "sftp",
     "id": "org.xverb.sftp",
     "name": "SFTP",
