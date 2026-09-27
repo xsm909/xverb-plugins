@@ -1,0 +1,48 @@
+{
+  "id": "r",
+  "name": "R",
+  "extensions": [
+    "r",
+    "rprofile"
+  ],
+  "lineComment": [
+    "#"
+  ],
+  "strings": [
+    {
+      "open": "\"",
+      "close": "\""
+    },
+    {
+      "open": "'",
+      "close": "'"
+    }
+  ],
+  "keywords": [
+    "break",
+    "else",
+    "for",
+    "function",
+    "if",
+    "in",
+    "library",
+    "next",
+    "repeat",
+    "require",
+    "return",
+    "while"
+  ],
+  "types": [],
+  "constants": [
+    "TRUE",
+    "FALSE",
+    "NULL",
+    "NA",
+    "NaN",
+    "Inf",
+    "T",
+    "F"
+  ],
+  "linePatterns": [],
+  "blocks": "braces"
+}

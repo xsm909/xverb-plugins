@@ -1,0 +1,156 @@
+{
+  "id": "csharp",
+  "name": "C#",
+  "extensions": [
+    "cs",
+    "csx"
+  ],
+  "lineComment": [
+    "//"
+  ],
+  "blockComment": [
+    [
+      "/*",
+      "*/"
+    ]
+  ],
+  "strings": [
+    {
+      "open": "@\"",
+      "close": "\"",
+      "escape": "",
+      "multiline": true
+    },
+    {
+      "open": "$\"",
+      "close": "\""
+    },
+    {
+      "open": "\"",
+      "close": "\""
+    },
+    {
+      "open": "'",
+      "close": "'"
+    }
+  ],
+  "keywords": [
+    "abstract",
+    "as",
+    "async",
+    "await",
+    "base",
+    "break",
+    "case",
+    "catch",
+    "checked",
+    "class",
+    "const",
+    "continue",
+    "default",
+    "delegate",
+    "do",
+    "else",
+    "enum",
+    "event",
+    "explicit",
+    "extern",
+    "finally",
+    "fixed",
+    "for",
+    "foreach",
+    "get",
+    "goto",
+    "if",
+    "implicit",
+    "in",
+    "init",
+    "interface",
+    "internal",
+    "is",
+    "lock",
+    "namespace",
+    "new",
+    "operator",
+    "out",
+    "override",
+    "params",
+    "partial",
+    "private",
+    "protected",
+    "public",
+    "readonly",
+    "record",
+    "ref",
+    "required",
+    "return",
+    "sealed",
+    "set",
+    "sizeof",
+    "stackalloc",
+    "static",
+    "struct",
+    "switch",
+    "this",
+    "throw",
+    "try",
+    "typeof",
+    "unchecked",
+    "unsafe",
+    "using",
+    "value",
+    "var",
+    "virtual",
+    "volatile",
+    "when",
+    "where",
+    "while",
+    "yield"
+  ],
+  "types": [
+    "Dictionary",
+    "IEnumerable",
+    "List",
+    "Span",
+    "Task",
+    "bool",
+    "byte",
+    "char",
+    "decimal",
+    "double",
+    "dynamic",
+    "float",
+    "int",
+    "long",
+    "nint",
+    "nuint",
+    "object",
+    "sbyte",
+    "short",
+    "string",
+    "uint",
+    "ulong",
+    "ushort",
+    "void"
+  ],
+  "constants": [
+    "true",
+    "false",
+    "null"
+  ],
+  "linePatterns": [
+    {
+      "match": "#\\s*\\w+.*",
+      "role": "meta"
+    }
+  ],
+  "blocks": "braces",
+  "declares": [
+    "class",
+    "struct",
+    "interface",
+    "enum",
+    "record",
+    "namespace"
+  ]
+}

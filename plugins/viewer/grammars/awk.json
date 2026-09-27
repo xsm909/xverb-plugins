@@ -1,0 +1,52 @@
+{
+  "id": "awk",
+  "name": "AWK",
+  "extensions": [
+    "awk",
+    "gawk"
+  ],
+  "lineComment": [
+    "#"
+  ],
+  "strings": [
+    {
+      "open": "\"",
+      "close": "\""
+    }
+  ],
+  "keywords": [
+    "BEGIN",
+    "BEGINFILE",
+    "END",
+    "ENDFILE",
+    "break",
+    "continue",
+    "delete",
+    "do",
+    "else",
+    "exit",
+    "for",
+    "function",
+    "getline",
+    "if",
+    "in",
+    "next",
+    "nextfile",
+    "print",
+    "printf",
+    "return",
+    "while"
+  ],
+  "types": [],
+  "constants": [],
+  "linePatterns": [
+    {
+      "match": "\\$\\w+",
+      "role": "type"
+    }
+  ],
+  "blocks": "braces",
+  "declares": [
+    "function"
+  ]
+}

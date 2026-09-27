@@ -1,0 +1,97 @@
+{
+  "id": "ruby",
+  "name": "Ruby",
+  "extensions": [
+    "rb",
+    "rake",
+    "gemspec",
+    "ru"
+  ],
+  "names": [
+    "gemfile",
+    "rakefile",
+    "guardfile",
+    "podfile",
+    "vagrantfile"
+  ],
+  "lineComment": [
+    "#"
+  ],
+  "blockComment": [
+    [
+      "=begin",
+      "=end"
+    ]
+  ],
+  "strings": [
+    {
+      "open": "\"",
+      "close": "\""
+    },
+    {
+      "open": "'",
+      "close": "'"
+    },
+    {
+      "open": "`",
+      "close": "`"
+    }
+  ],
+  "keywords": [
+    "alias",
+    "and",
+    "attr_accessor",
+    "attr_reader",
+    "attr_writer",
+    "begin",
+    "break",
+    "case",
+    "class",
+    "def",
+    "defined?",
+    "do",
+    "else",
+    "elsif",
+    "end",
+    "ensure",
+    "for",
+    "if",
+    "in",
+    "module",
+    "next",
+    "not",
+    "or",
+    "private",
+    "protected",
+    "public",
+    "redo",
+    "require",
+    "require_relative",
+    "rescue",
+    "retry",
+    "return",
+    "self",
+    "super",
+    "then",
+    "undef",
+    "unless",
+    "until",
+    "when",
+    "while",
+    "yield"
+  ],
+  "types": [],
+  "constants": [
+    "true",
+    "false",
+    "nil"
+  ],
+  "linePatterns": [],
+  "blocks": "none",
+  "declares": [
+    "class",
+    "module",
+    "def"
+  ],
+  "statementsEndAtLine": true
+}

@@ -1,0 +1,108 @@
+{
+  "id": "verilog",
+  "name": "Verilog and SystemVerilog",
+  "extensions": [
+    "v",
+    "sv",
+    "svh",
+    "vh"
+  ],
+  "lineComment": [
+    "//"
+  ],
+  "blockComment": [
+    [
+      "/*",
+      "*/"
+    ]
+  ],
+  "strings": [
+    {
+      "open": "\"",
+      "close": "\""
+    },
+    {
+      "open": "'",
+      "close": "'"
+    }
+  ],
+  "keywords": [
+    "always",
+    "always_comb",
+    "always_ff",
+    "assign",
+    "automatic",
+    "begin",
+    "case",
+    "casex",
+    "casez",
+    "class",
+    "default",
+    "else",
+    "end",
+    "endcase",
+    "endclass",
+    "endfunction",
+    "endgenerate",
+    "endinterface",
+    "endmodule",
+    "endpackage",
+    "endtask",
+    "for",
+    "forever",
+    "function",
+    "generate",
+    "if",
+    "initial",
+    "inout",
+    "input",
+    "interface",
+    "localparam",
+    "module",
+    "negedge",
+    "output",
+    "package",
+    "parameter",
+    "posedge",
+    "reg",
+    "repeat",
+    "return",
+    "signed",
+    "task",
+    "typedef",
+    "unsigned",
+    "while",
+    "wire"
+  ],
+  "types": [
+    "bit",
+    "byte",
+    "int",
+    "integer",
+    "logic",
+    "longint",
+    "real",
+    "shortint",
+    "time"
+  ],
+  "constants": [],
+  "linePatterns": [
+    {
+      "match": "`\\w+",
+      "role": "meta"
+    },
+    {
+      "match": "\\$\\w+",
+      "role": "type"
+    }
+  ],
+  "blocks": "none",
+  "declares": [
+    "module",
+    "interface",
+    "package",
+    "class",
+    "function",
+    "task"
+  ]
+}

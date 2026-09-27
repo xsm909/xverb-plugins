@@ -1,0 +1,89 @@
+{
+  "id": "wgsl",
+  "name": "WGSL",
+  "extensions": [
+    "wgsl"
+  ],
+  "lineComment": [
+    "//"
+  ],
+  "blockComment": [
+    [
+      "/*",
+      "*/"
+    ]
+  ],
+  "strings": [
+    {
+      "open": "\"",
+      "close": "\""
+    },
+    {
+      "open": "'",
+      "close": "'"
+    }
+  ],
+  "keywords": [
+    "alias",
+    "break",
+    "case",
+    "const",
+    "const_assert",
+    "continue",
+    "continuing",
+    "default",
+    "diagnostic",
+    "discard",
+    "else",
+    "enable",
+    "fn",
+    "for",
+    "if",
+    "let",
+    "loop",
+    "override",
+    "return",
+    "struct",
+    "switch",
+    "var",
+    "while"
+  ],
+  "types": [
+    "array",
+    "atomic",
+    "bool",
+    "f16",
+    "f32",
+    "i32",
+    "mat2x2",
+    "mat3x3",
+    "mat4x4",
+    "ptr",
+    "sampler",
+    "texture_2d",
+    "texture_3d",
+    "texture_cube",
+    "u32",
+    "vec2",
+    "vec2f",
+    "vec3",
+    "vec3f",
+    "vec4",
+    "vec4f"
+  ],
+  "constants": [
+    "true",
+    "false"
+  ],
+  "linePatterns": [
+    {
+      "match": "@\\w+",
+      "role": "meta"
+    }
+  ],
+  "blocks": "braces",
+  "declares": [
+    "fn",
+    "struct"
+  ]
+}

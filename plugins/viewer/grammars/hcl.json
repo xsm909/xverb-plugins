@@ -1,0 +1,84 @@
+{
+  "id": "hcl",
+  "name": "Terraform and HCL",
+  "extensions": [
+    "tf",
+    "tfvars",
+    "hcl",
+    "nomad"
+  ],
+  "lineComment": [
+    "#",
+    "//"
+  ],
+  "blockComment": [
+    [
+      "/*",
+      "*/"
+    ]
+  ],
+  "strings": [
+    {
+      "open": "<<EOF",
+      "close": "EOF",
+      "escape": "",
+      "multiline": true
+    },
+    {
+      "open": "\"",
+      "close": "\""
+    }
+  ],
+  "keywords": [
+    "backend",
+    "count",
+    "data",
+    "depends_on",
+    "dynamic",
+    "for",
+    "for_each",
+    "if",
+    "in",
+    "lifecycle",
+    "locals",
+    "module",
+    "output",
+    "provider",
+    "provisioner",
+    "required_providers",
+    "resource",
+    "terraform",
+    "variable"
+  ],
+  "types": [
+    "any",
+    "bool",
+    "list",
+    "map",
+    "number",
+    "object",
+    "set",
+    "string",
+    "tuple"
+  ],
+  "constants": [
+    "true",
+    "false",
+    "null"
+  ],
+  "linePatterns": [
+    {
+      "match": "[A-Za-z_][\\w-]*(?=\\s*=)",
+      "role": "type"
+    }
+  ],
+  "blocks": "braces",
+  "declares": [
+    "resource",
+    "data",
+    "module",
+    "variable",
+    "output",
+    "provider"
+  ]
+}

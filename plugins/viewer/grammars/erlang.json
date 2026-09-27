@@ -1,0 +1,59 @@
+{
+  "id": "erlang",
+  "name": "Erlang",
+  "extensions": [
+    "erl",
+    "hrl"
+  ],
+  "lineComment": [
+    "%"
+  ],
+  "strings": [
+    {
+      "open": "\"",
+      "close": "\""
+    }
+  ],
+  "keywords": [
+    "after",
+    "and",
+    "andalso",
+    "band",
+    "begin",
+    "bnot",
+    "bor",
+    "bsl",
+    "bsr",
+    "bxor",
+    "case",
+    "catch",
+    "cond",
+    "div",
+    "end",
+    "fun",
+    "if",
+    "let",
+    "not",
+    "of",
+    "or",
+    "orelse",
+    "receive",
+    "rem",
+    "try",
+    "when",
+    "xor"
+  ],
+  "types": [],
+  "constants": [
+    "true",
+    "false",
+    "undefined"
+  ],
+  "linePatterns": [
+    {
+      "match": "-\\w+",
+      "role": "meta"
+    }
+  ],
+  "blocks": "none"
+}

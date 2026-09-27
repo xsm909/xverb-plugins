@@ -1,0 +1,132 @@
+{
+  "id": "nim",
+  "name": "Nim",
+  "extensions": [
+    "nim",
+    "nims",
+    "nimble"
+  ],
+  "lineComment": [
+    "#"
+  ],
+  "blockComment": [
+    [
+      "#[",
+      "]#"
+    ]
+  ],
+  "strings": [
+    {
+      "open": "\"\"\"",
+      "close": "\"\"\"",
+      "multiline": true
+    },
+    {
+      "open": "\"",
+      "close": "\""
+    },
+    {
+      "open": "'",
+      "close": "'"
+    }
+  ],
+  "keywords": [
+    "addr",
+    "and",
+    "as",
+    "asm",
+    "bind",
+    "block",
+    "break",
+    "case",
+    "cast",
+    "concept",
+    "const",
+    "continue",
+    "converter",
+    "defer",
+    "discard",
+    "distinct",
+    "div",
+    "do",
+    "elif",
+    "else",
+    "end",
+    "enum",
+    "except",
+    "export",
+    "finally",
+    "for",
+    "from",
+    "func",
+    "if",
+    "import",
+    "in",
+    "include",
+    "interface",
+    "is",
+    "isnot",
+    "iterator",
+    "let",
+    "macro",
+    "method",
+    "mixin",
+    "mod",
+    "nil",
+    "not",
+    "notin",
+    "object",
+    "of",
+    "or",
+    "out",
+    "proc",
+    "ptr",
+    "raise",
+    "ref",
+    "return",
+    "shl",
+    "shr",
+    "static",
+    "template",
+    "try",
+    "tuple",
+    "type",
+    "using",
+    "var",
+    "when",
+    "while",
+    "xor",
+    "yield"
+  ],
+  "types": [
+    "array",
+    "bool",
+    "char",
+    "float",
+    "int",
+    "int16",
+    "int32",
+    "int64",
+    "int8",
+    "seq",
+    "string",
+    "uint",
+    "uint8"
+  ],
+  "constants": [
+    "true",
+    "false",
+    "nil"
+  ],
+  "linePatterns": [],
+  "blocks": "indent",
+  "declares": [
+    "proc",
+    "func",
+    "method",
+    "iterator",
+    "macro",
+    "template",
+    "type"
+  ]
+}

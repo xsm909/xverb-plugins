@@ -1,0 +1,64 @@
+{
+  "id": "lua",
+  "name": "Lua",
+  "extensions": [
+    "lua"
+  ],
+  "lineComment": [
+    "--"
+  ],
+  "blockComment": [
+    [
+      "--[[",
+      "]]"
+    ]
+  ],
+  "strings": [
+    {
+      "open": "[[",
+      "close": "]]",
+      "escape": "",
+      "multiline": true
+    },
+    {
+      "open": "\"",
+      "close": "\""
+    },
+    {
+      "open": "'",
+      "close": "'"
+    }
+  ],
+  "keywords": [
+    "and",
+    "break",
+    "do",
+    "else",
+    "elseif",
+    "end",
+    "for",
+    "function",
+    "goto",
+    "if",
+    "in",
+    "local",
+    "not",
+    "or",
+    "repeat",
+    "return",
+    "then",
+    "until",
+    "while"
+  ],
+  "types": [],
+  "constants": [
+    "true",
+    "false",
+    "nil"
+  ],
+  "linePatterns": [],
+  "blocks": "none",
+  "declares": [
+    "function"
+  ]
+}

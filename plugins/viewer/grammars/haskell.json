@@ -1,0 +1,84 @@
+{
+  "id": "haskell",
+  "name": "Haskell",
+  "extensions": [
+    "hs",
+    "lhs"
+  ],
+  "lineComment": [
+    "--"
+  ],
+  "blockComment": [
+    [
+      "{-",
+      "-}"
+    ]
+  ],
+  "strings": [
+    {
+      "open": "\"",
+      "close": "\""
+    }
+  ],
+  "keywords": [
+    "as",
+    "case",
+    "class",
+    "data",
+    "default",
+    "deriving",
+    "do",
+    "else",
+    "family",
+    "forall",
+    "foreign",
+    "hiding",
+    "if",
+    "import",
+    "in",
+    "infix",
+    "infixl",
+    "infixr",
+    "instance",
+    "let",
+    "mdo",
+    "module",
+    "newtype",
+    "of",
+    "proc",
+    "qualified",
+    "rec",
+    "then",
+    "type",
+    "where"
+  ],
+  "types": [
+    "Bool",
+    "Char",
+    "Double",
+    "Either",
+    "Float",
+    "IO",
+    "Int",
+    "Integer",
+    "Maybe",
+    "String"
+  ],
+  "constants": [
+    "True",
+    "False",
+    "Nothing",
+    "Just",
+    "Left",
+    "Right"
+  ],
+  "linePatterns": [],
+  "blocks": "indent",
+  "declares": [
+    "data",
+    "newtype",
+    "class",
+    "instance",
+    "type"
+  ]
+}

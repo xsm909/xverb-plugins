@@ -1,0 +1,95 @@
+{
+  "id": "julia",
+  "name": "Julia",
+  "extensions": [
+    "jl"
+  ],
+  "lineComment": [
+    "#"
+  ],
+  "blockComment": [
+    [
+      "#=",
+      "=#"
+    ]
+  ],
+  "strings": [
+    {
+      "open": "\"\"\"",
+      "close": "\"\"\"",
+      "multiline": true
+    },
+    {
+      "open": "\"",
+      "close": "\""
+    }
+  ],
+  "keywords": [
+    "abstract",
+    "baremodule",
+    "begin",
+    "break",
+    "catch",
+    "const",
+    "continue",
+    "do",
+    "else",
+    "elseif",
+    "end",
+    "export",
+    "finally",
+    "for",
+    "function",
+    "global",
+    "if",
+    "import",
+    "let",
+    "local",
+    "macro",
+    "module",
+    "mutable",
+    "primitive",
+    "quote",
+    "return",
+    "struct",
+    "try",
+    "type",
+    "using",
+    "where",
+    "while"
+  ],
+  "types": [
+    "Any",
+    "Array",
+    "Bool",
+    "Char",
+    "Dict",
+    "Float32",
+    "Float64",
+    "Int",
+    "Int16",
+    "Int32",
+    "Int64",
+    "Int8",
+    "Matrix",
+    "Nothing",
+    "String",
+    "Vector"
+  ],
+  "constants": [
+    "true",
+    "false",
+    "nothing",
+    "missing",
+    "NaN",
+    "Inf"
+  ],
+  "linePatterns": [],
+  "blocks": "none",
+  "declares": [
+    "function",
+    "struct",
+    "module",
+    "macro"
+  ]
+}

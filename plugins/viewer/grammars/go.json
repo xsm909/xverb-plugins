@@ -1,0 +1,95 @@
+{
+  "id": "go",
+  "name": "Go",
+  "extensions": [
+    "go"
+  ],
+  "lineComment": [
+    "//"
+  ],
+  "blockComment": [
+    [
+      "/*",
+      "*/"
+    ]
+  ],
+  "strings": [
+    {
+      "open": "`",
+      "close": "`",
+      "multiline": true
+    },
+    {
+      "open": "\"",
+      "close": "\""
+    },
+    {
+      "open": "'",
+      "close": "'"
+    }
+  ],
+  "keywords": [
+    "break",
+    "case",
+    "chan",
+    "const",
+    "continue",
+    "default",
+    "defer",
+    "else",
+    "fallthrough",
+    "for",
+    "func",
+    "go",
+    "goto",
+    "if",
+    "import",
+    "interface",
+    "map",
+    "package",
+    "range",
+    "return",
+    "select",
+    "struct",
+    "switch",
+    "type",
+    "var"
+  ],
+  "types": [
+    "any",
+    "bool",
+    "byte",
+    "complex128",
+    "complex64",
+    "error",
+    "float32",
+    "float64",
+    "int",
+    "int16",
+    "int32",
+    "int64",
+    "int8",
+    "rune",
+    "string",
+    "uint",
+    "uint16",
+    "uint32",
+    "uint64",
+    "uint8",
+    "uintptr"
+  ],
+  "constants": [
+    "true",
+    "false",
+    "nil",
+    "iota"
+  ],
+  "linePatterns": [],
+  "blocks": "braces",
+  "declares": [
+    "func",
+    "type",
+    "struct",
+    "interface"
+  ]
+}

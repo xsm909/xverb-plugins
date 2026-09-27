@@ -1,0 +1,81 @@
+{
+  "id": "lisp",
+  "name": "Lisp and Scheme",
+  "extensions": [
+    "lisp",
+    "lsp",
+    "cl",
+    "el",
+    "scm",
+    "ss",
+    "rkt"
+  ],
+  "lineComment": [
+    ";"
+  ],
+  "blockComment": [
+    [
+      "#|",
+      "|#"
+    ]
+  ],
+  "strings": [
+    {
+      "open": "\"",
+      "close": "\""
+    }
+  ],
+  "keywords": [
+    "and",
+    "begin",
+    "case",
+    "cond",
+    "defclass",
+    "defconstant",
+    "defgeneric",
+    "define",
+    "define-syntax",
+    "defmacro",
+    "defmethod",
+    "defparameter",
+    "defstruct",
+    "defun",
+    "defvar",
+    "do",
+    "if",
+    "lambda",
+    "let",
+    "let*",
+    "letrec",
+    "loop",
+    "not",
+    "or",
+    "progn",
+    "provide",
+    "quote",
+    "require",
+    "setf",
+    "setq",
+    "unless",
+    "when"
+  ],
+  "types": [],
+  "constants": [
+    "t",
+    "nil",
+    "#t",
+    "#f"
+  ],
+  "linePatterns": [
+    {
+      "match": ":[\\w\\-]+",
+      "role": "constant"
+    }
+  ],
+  "blocks": "none",
+  "declares": [
+    "defun",
+    "defmacro",
+    "define"
+  ]
+}

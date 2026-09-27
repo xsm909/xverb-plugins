@@ -1,0 +1,115 @@
+{
+  "id": "scala",
+  "name": "Scala",
+  "extensions": [
+    "scala",
+    "sbt"
+  ],
+  "lineComment": [
+    "//"
+  ],
+  "blockComment": [
+    [
+      "/*",
+      "*/"
+    ]
+  ],
+  "strings": [
+    {
+      "open": "\"\"\"",
+      "close": "\"\"\"",
+      "multiline": true
+    },
+    {
+      "open": "\"",
+      "close": "\""
+    },
+    {
+      "open": "'",
+      "close": "'"
+    }
+  ],
+  "keywords": [
+    "abstract",
+    "case",
+    "catch",
+    "class",
+    "def",
+    "do",
+    "else",
+    "enum",
+    "export",
+    "extends",
+    "final",
+    "finally",
+    "for",
+    "forSome",
+    "given",
+    "if",
+    "implicit",
+    "import",
+    "lazy",
+    "match",
+    "new",
+    "object",
+    "override",
+    "package",
+    "private",
+    "protected",
+    "return",
+    "sealed",
+    "super",
+    "then",
+    "this",
+    "throw",
+    "trait",
+    "try",
+    "type",
+    "using",
+    "val",
+    "var",
+    "while",
+    "with",
+    "yield"
+  ],
+  "types": [
+    "Any",
+    "AnyRef",
+    "Boolean",
+    "Byte",
+    "Char",
+    "Double",
+    "Float",
+    "Int",
+    "List",
+    "Long",
+    "Map",
+    "Nothing",
+    "Option",
+    "Seq",
+    "Short",
+    "String",
+    "Unit"
+  ],
+  "constants": [
+    "true",
+    "false",
+    "null",
+    "None",
+    "Nil"
+  ],
+  "linePatterns": [
+    {
+      "match": "@\\w+(\\.\\w+)*",
+      "role": "meta"
+    }
+  ],
+  "blocks": "braces",
+  "declares": [
+    "class",
+    "object",
+    "trait",
+    "enum",
+    "def"
+  ]
+}

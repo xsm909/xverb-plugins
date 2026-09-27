@@ -1,0 +1,119 @@
+{
+  "id": "fsharp",
+  "name": "F#",
+  "extensions": [
+    "fs",
+    "fsx",
+    "fsi"
+  ],
+  "lineComment": [
+    "//"
+  ],
+  "blockComment": [
+    [
+      "(*",
+      "*)"
+    ]
+  ],
+  "strings": [
+    {
+      "open": "\"\"\"",
+      "close": "\"\"\"",
+      "multiline": true
+    },
+    {
+      "open": "\"",
+      "close": "\""
+    }
+  ],
+  "keywords": [
+    "abstract",
+    "and",
+    "as",
+    "assert",
+    "base",
+    "begin",
+    "class",
+    "default",
+    "delegate",
+    "do",
+    "done",
+    "downcast",
+    "downto",
+    "elif",
+    "else",
+    "end",
+    "exception",
+    "extern",
+    "for",
+    "fun",
+    "function",
+    "global",
+    "if",
+    "in",
+    "inherit",
+    "inline",
+    "interface",
+    "internal",
+    "lazy",
+    "let",
+    "match",
+    "member",
+    "module",
+    "mutable",
+    "namespace",
+    "new",
+    "of",
+    "open",
+    "or",
+    "override",
+    "private",
+    "public",
+    "rec",
+    "return",
+    "static",
+    "struct",
+    "then",
+    "to",
+    "try",
+    "type",
+    "upcast",
+    "use",
+    "val",
+    "void",
+    "when",
+    "while",
+    "with",
+    "yield"
+  ],
+  "types": [
+    "bool",
+    "byte",
+    "char",
+    "decimal",
+    "double",
+    "float",
+    "int",
+    "int64",
+    "list",
+    "option",
+    "seq",
+    "string",
+    "unit"
+  ],
+  "constants": [
+    "true",
+    "false",
+    "null",
+    "None",
+    "Some"
+  ],
+  "linePatterns": [],
+  "blocks": "indent",
+  "declares": [
+    "type",
+    "module",
+    "let",
+    "member"
+  ]
+}

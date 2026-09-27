@@ -1,0 +1,120 @@
+{
+  "id": "objc",
+  "name": "Objective-C",
+  "extensions": [
+    "m",
+    "mm"
+  ],
+  "lineComment": [
+    "//"
+  ],
+  "blockComment": [
+    [
+      "/*",
+      "*/"
+    ]
+  ],
+  "strings": [
+    {
+      "open": "@\"",
+      "close": "\""
+    },
+    {
+      "open": "\"",
+      "close": "\""
+    },
+    {
+      "open": "'",
+      "close": "'"
+    }
+  ],
+  "keywords": [
+    "@autoreleasepool",
+    "@catch",
+    "@class",
+    "@end",
+    "@finally",
+    "@implementation",
+    "@import",
+    "@interface",
+    "@property",
+    "@protocol",
+    "@selector",
+    "@synthesize",
+    "@throw",
+    "@try",
+    "assign",
+    "auto",
+    "break",
+    "case",
+    "char",
+    "const",
+    "continue",
+    "copy",
+    "default",
+    "do",
+    "else",
+    "enum",
+    "extern",
+    "for",
+    "goto",
+    "if",
+    "inline",
+    "nonatomic",
+    "readonly",
+    "readwrite",
+    "register",
+    "return",
+    "self",
+    "sizeof",
+    "static",
+    "strong",
+    "struct",
+    "super",
+    "switch",
+    "typedef",
+    "union",
+    "unsigned",
+    "void",
+    "volatile",
+    "weak",
+    "while"
+  ],
+  "types": [
+    "BOOL",
+    "CGFloat",
+    "NSArray",
+    "NSDictionary",
+    "NSInteger",
+    "NSObject",
+    "NSString",
+    "NSUInteger",
+    "double",
+    "float",
+    "id",
+    "instancetype",
+    "int",
+    "long",
+    "short"
+  ],
+  "constants": [
+    "YES",
+    "NO",
+    "nil",
+    "NULL",
+    "true",
+    "false"
+  ],
+  "linePatterns": [
+    {
+      "match": "#\\s*\\w+.*",
+      "role": "meta"
+    }
+  ],
+  "blocks": "braces",
+  "declares": [
+    "@interface",
+    "@implementation",
+    "@protocol"
+  ]
+}

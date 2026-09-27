@@ -1,0 +1,122 @@
+{
+  "id": "swift",
+  "name": "Swift",
+  "extensions": [
+    "swift"
+  ],
+  "lineComment": [
+    "//"
+  ],
+  "blockComment": [
+    [
+      "/*",
+      "*/"
+    ]
+  ],
+  "strings": [
+    {
+      "open": "\"\"\"",
+      "close": "\"\"\"",
+      "multiline": true
+    },
+    {
+      "open": "\"",
+      "close": "\""
+    }
+  ],
+  "keywords": [
+    "Self",
+    "actor",
+    "as",
+    "associatedtype",
+    "async",
+    "await",
+    "break",
+    "case",
+    "catch",
+    "class",
+    "continue",
+    "default",
+    "defer",
+    "deinit",
+    "do",
+    "else",
+    "enum",
+    "extension",
+    "fallthrough",
+    "fileprivate",
+    "for",
+    "func",
+    "guard",
+    "if",
+    "import",
+    "in",
+    "init",
+    "inout",
+    "internal",
+    "is",
+    "lazy",
+    "let",
+    "mutating",
+    "nonmutating",
+    "open",
+    "operator",
+    "override",
+    "private",
+    "protocol",
+    "public",
+    "repeat",
+    "rethrows",
+    "return",
+    "self",
+    "some",
+    "static",
+    "struct",
+    "subscript",
+    "super",
+    "switch",
+    "throw",
+    "throws",
+    "try",
+    "typealias",
+    "var",
+    "weak",
+    "where",
+    "while"
+  ],
+  "types": [
+    "Any",
+    "Array",
+    "Bool",
+    "Character",
+    "Dictionary",
+    "Double",
+    "Float",
+    "Int",
+    "Optional",
+    "Set",
+    "String",
+    "Void"
+  ],
+  "constants": [
+    "true",
+    "false",
+    "nil"
+  ],
+  "linePatterns": [
+    {
+      "match": "@\\w+(\\.\\w+)*",
+      "role": "meta"
+    }
+  ],
+  "blocks": "braces",
+  "declares": [
+    "class",
+    "struct",
+    "enum",
+    "protocol",
+    "extension",
+    "func",
+    "actor"
+  ]
+}

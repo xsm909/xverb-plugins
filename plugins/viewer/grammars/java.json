@@ -1,15 +1,8 @@
 {
-  "id": "javascript",
-  "name": "JavaScript and TypeScript",
+  "id": "java",
+  "name": "Java",
   "extensions": [
-    "js",
-    "mjs",
-    "cjs",
-    "jsx",
-    "ts",
-    "tsx",
-    "mts",
-    "cts"
+    "java"
   ],
   "lineComment": [
     "//"
@@ -22,8 +15,8 @@
   ],
   "strings": [
     {
-      "open": "`",
-      "close": "`",
+      "open": "\"\"\"",
+      "close": "\"\"\"",
       "multiline": true
     },
     {
@@ -36,92 +29,85 @@
     }
   ],
   "keywords": [
-    "as",
-    "async",
-    "await",
+    "abstract",
+    "assert",
     "break",
     "case",
     "catch",
     "class",
     "const",
     "continue",
-    "debugger",
-    "declare",
     "default",
-    "delete",
     "do",
     "else",
     "enum",
-    "export",
     "extends",
+    "final",
     "finally",
     "for",
-    "from",
-    "function",
-    "get",
+    "goto",
     "if",
     "implements",
     "import",
-    "in",
     "instanceof",
     "interface",
-    "let",
+    "native",
     "new",
-    "of",
+    "package",
+    "permits",
     "private",
     "protected",
     "public",
-    "readonly",
+    "record",
     "return",
-    "satisfies",
-    "set",
+    "sealed",
     "static",
+    "strictfp",
     "super",
     "switch",
+    "synchronized",
     "this",
     "throw",
+    "throws",
+    "transient",
     "try",
-    "type",
-    "typeof",
     "var",
     "void",
+    "volatile",
     "while",
-    "with",
     "yield"
   ],
   "types": [
-    "any",
-    "Array",
-    "bigint",
-    "boolean",
-    "Date",
-    "Error",
+    "Integer",
+    "List",
     "Map",
-    "never",
-    "number",
     "Object",
-    "Promise",
-    "RegExp",
-    "Set",
-    "string",
-    "symbol",
-    "unknown"
+    "String",
+    "boolean",
+    "byte",
+    "char",
+    "double",
+    "float",
+    "int",
+    "long",
+    "short"
   ],
   "constants": [
     "true",
     "false",
-    "null",
-    "undefined",
-    "NaN",
-    "Infinity"
+    "null"
   ],
-  "linePatterns": [],
+  "linePatterns": [
+    {
+      "match": "@\\w+(\\.\\w+)*",
+      "role": "meta"
+    }
+  ],
   "blocks": "braces",
   "declares": [
     "class",
     "interface",
     "enum",
-    "namespace",
-    "module"
+    "record"
   ]
 }

@@ -1,15 +1,13 @@
 {
-  "id": "javascript",
-  "name": "JavaScript and TypeScript",
+  "id": "groovy",
+  "name": "Groovy and Gradle",
   "extensions": [
-    "js",
-    "mjs",
-    "cjs",
-    "jsx",
-    "ts",
-    "tsx",
-    "mts",
-    "cts"
+    "groovy",
+    "gradle",
+    "gvy"
+  ],
+  "names": [
+    "jenkinsfile"
   ],
   "lineComment": [
     "//"
@@ -22,8 +20,13 @@
   ],
   "strings": [
     {
-      "open": "`",
-      "close": "`",
+      "open": "'''",
+      "close": "'''",
+      "multiline": true
+    },
+    {
+      "open": "\"\"\"",
+      "close": "\"\"\"",
       "multiline": true
     },
     {
@@ -36,92 +39,82 @@
     }
   ],
   "keywords": [
+    "abstract",
+    "apply",
     "as",
-    "async",
-    "await",
+    "assert",
     "break",
     "case",
     "catch",
     "class",
-    "const",
-    "continue",
-    "debugger",
-    "declare",
+    "def",
     "default",
-    "delete",
+    "dependencies",
     "do",
     "else",
     "enum",
-    "export",
     "extends",
+    "final",
     "finally",
     "for",
-    "from",
-    "function",
-    "get",
     "if",
     "implements",
     "import",
     "in",
     "instanceof",
     "interface",
-    "let",
     "new",
-    "of",
+    "package",
+    "plugins",
     "private",
     "protected",
     "public",
-    "readonly",
+    "repositories",
     "return",
-    "satisfies",
-    "set",
     "static",
     "super",
     "switch",
+    "task",
     "this",
     "throw",
+    "throws",
+    "trait",
     "try",
-    "type",
-    "typeof",
     "var",
     "void",
-    "while",
-    "with",
-    "yield"
+    "while"
   ],
   "types": [
-    "any",
-    "Array",
-    "bigint",
-    "boolean",
-    "Date",
-    "Error",
+    "List",
     "Map",
-    "never",
-    "number",
     "Object",
-    "Promise",
-    "RegExp",
-    "Set",
-    "string",
-    "symbol",
-    "unknown"
+    "String",
+    "boolean",
+    "byte",
+    "char",
+    "double",
+    "float",
+    "int",
+    "long",
+    "short"
   ],
   "constants": [
     "true",
     "false",
-    "null",
-    "undefined",
-    "NaN",
-    "Infinity"
+    "null"
   ],
-  "linePatterns": [],
+  "linePatterns": [
+    {
+      "match": "@\\w+(\\.\\w+)*",
+      "role": "meta"
+    }
+  ],
   "blocks": "braces",
   "declares": [
     "class",
     "interface",
+    "trait",
     "enum",
-    "namespace",
-    "module"
+    "def"
   ]
 }

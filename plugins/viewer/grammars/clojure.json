@@ -1,0 +1,77 @@
+{
+  "id": "clojure",
+  "name": "Clojure",
+  "extensions": [
+    "clj",
+    "cljs",
+    "cljc",
+    "edn"
+  ],
+  "lineComment": [
+    ";"
+  ],
+  "strings": [
+    {
+      "open": "\"",
+      "close": "\""
+    }
+  ],
+  "keywords": [
+    "and",
+    "case",
+    "catch",
+    "cond",
+    "condp",
+    "def",
+    "defmacro",
+    "defmethod",
+    "defmulti",
+    "defn",
+    "defn-",
+    "defonce",
+    "defprotocol",
+    "defrecord",
+    "deftype",
+    "do",
+    "finally",
+    "fn",
+    "if",
+    "if-not",
+    "import",
+    "let",
+    "letfn",
+    "loop",
+    "new",
+    "not",
+    "ns",
+    "or",
+    "quote",
+    "recur",
+    "require",
+    "throw",
+    "try",
+    "use",
+    "var",
+    "when",
+    "when-not"
+  ],
+  "types": [],
+  "constants": [
+    "true",
+    "false",
+    "nil"
+  ],
+  "linePatterns": [
+    {
+      "match": ":[\\w\\-.*+!?/<>]+",
+      "role": "constant"
+    }
+  ],
+  "blocks": "none",
+  "declares": [
+    "defn",
+    "defmacro",
+    "def",
+    "ns"
+  ]
+}

@@ -11,7 +11,24 @@
     "xhtml",
     "xsd",
     "csproj",
-    "vcxproj"
+    "vcxproj",
+    "vue",
+    "svelte",
+    "xsl",
+    "xslt",
+    "wsdl",
+    "rss",
+    "atom",
+    "kml",
+    "gpx",
+    "resx",
+    "props",
+    "targets",
+    "nuspec",
+    "xliff",
+    "xlf",
+    "storyboard",
+    "xib"
   ],
   "blockComment": [
     [

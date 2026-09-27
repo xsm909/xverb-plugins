@@ -1,0 +1,155 @@
+{
+  "id": "hlsl",
+  "name": "HLSL and Unreal shaders",
+  "extensions": [
+    "hlsl",
+    "hlsli",
+    "fx",
+    "fxh",
+    "usf",
+    "ush",
+    "cginc",
+    "shader",
+    "compute"
+  ],
+  "lineComment": [
+    "//"
+  ],
+  "blockComment": [
+    [
+      "/*",
+      "*/"
+    ]
+  ],
+  "strings": [
+    {
+      "open": "\"",
+      "close": "\""
+    },
+    {
+      "open": "'",
+      "close": "'"
+    }
+  ],
+  "keywords": [
+    "CGPROGRAM",
+    "ENDCG",
+    "ENDHLSL",
+    "HLSLPROGRAM",
+    "Pass",
+    "Properties",
+    "SubShader",
+    "break",
+    "case",
+    "cbuffer",
+    "centroid",
+    "class",
+    "column_major",
+    "const",
+    "continue",
+    "default",
+    "discard",
+    "do",
+    "else",
+    "extern",
+    "for",
+    "groupshared",
+    "if",
+    "in",
+    "inline",
+    "inout",
+    "interface",
+    "linear",
+    "namespace",
+    "nointerpolation",
+    "noperspective",
+    "out",
+    "packoffset",
+    "register",
+    "return",
+    "row_major",
+    "sample",
+    "shared",
+    "static",
+    "struct",
+    "switch",
+    "tbuffer",
+    "typedef",
+    "uniform",
+    "volatile",
+    "while"
+  ],
+  "types": [
+    "Buffer",
+    "RWStructuredBuffer",
+    "RWTexture2D",
+    "SamplerState",
+    "StructuredBuffer",
+    "Texture2D",
+    "Texture3D",
+    "TextureCube",
+    "bool",
+    "bvec2",
+    "bvec3",
+    "bvec4",
+    "cbuffer",
+    "double",
+    "float",
+    "float2",
+    "float2x2",
+    "float3",
+    "float3x3",
+    "float4",
+    "float4x4",
+    "half",
+    "half2",
+    "half3",
+    "half4",
+    "int",
+    "int2",
+    "int3",
+    "int4",
+    "ivec2",
+    "ivec3",
+    "ivec4",
+    "mat2",
+    "mat2x2",
+    "mat3",
+    "mat3x3",
+    "mat4",
+    "mat4x4",
+    "sampler2D",
+    "sampler3D",
+    "samplerCube",
+    "texture2D",
+    "uint",
+    "uint2",
+    "uint3",
+    "uint4",
+    "uvec2",
+    "uvec3",
+    "uvec4",
+    "vec2",
+    "vec3",
+    "vec4",
+    "void"
+  ],
+  "constants": [
+    "true",
+    "false"
+  ],
+  "linePatterns": [
+    {
+      "match": "#\\s*\\w+.*",
+      "role": "meta"
+    },
+    {
+      "match": ":\\s*[A-Z_]+[0-9]*\\b",
+      "role": "meta"
+    }
+  ],
+  "blocks": "braces",
+  "declares": [
+    "struct"
+  ]
+}

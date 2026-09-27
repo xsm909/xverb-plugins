@@ -1,0 +1,82 @@
+{
+  "id": "perl",
+  "name": "Perl",
+  "extensions": [
+    "pl",
+    "pm",
+    "pod",
+    "cgi"
+  ],
+  "lineComment": [
+    "#"
+  ],
+  "blockComment": [
+    [
+      "=pod",
+      "=cut"
+    ]
+  ],
+  "strings": [
+    {
+      "open": "\"",
+      "close": "\""
+    },
+    {
+      "open": "'",
+      "close": "'"
+    }
+  ],
+  "keywords": [
+    "and",
+    "cmp",
+    "continue",
+    "do",
+    "else",
+    "elsif",
+    "eq",
+    "exit",
+    "for",
+    "foreach",
+    "ge",
+    "goto",
+    "gt",
+    "if",
+    "last",
+    "le",
+    "local",
+    "lt",
+    "my",
+    "ne",
+    "next",
+    "no",
+    "not",
+    "or",
+    "our",
+    "package",
+    "print",
+    "redo",
+    "require",
+    "return",
+    "sub",
+    "unless",
+    "until",
+    "use",
+    "while",
+    "xor"
+  ],
+  "types": [],
+  "constants": [
+    "undef"
+  ],
+  "linePatterns": [
+    {
+      "match": "[$@%]\\w+",
+      "role": "type"
+    }
+  ],
+  "blocks": "braces",
+  "declares": [
+    "sub",
+    "package"
+  ]
+}

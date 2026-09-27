@@ -1,0 +1,68 @@
+{
+  "id": "elm",
+  "name": "Elm",
+  "extensions": [
+    "elm"
+  ],
+  "lineComment": [
+    "--"
+  ],
+  "blockComment": [
+    [
+      "{-",
+      "-}"
+    ]
+  ],
+  "strings": [
+    {
+      "open": "\"\"\"",
+      "close": "\"\"\"",
+      "multiline": true
+    },
+    {
+      "open": "\"",
+      "close": "\""
+    }
+  ],
+  "keywords": [
+    "alias",
+    "as",
+    "case",
+    "else",
+    "exposing",
+    "if",
+    "import",
+    "in",
+    "let",
+    "module",
+    "of",
+    "port",
+    "then",
+    "type",
+    "where"
+  ],
+  "types": [
+    "Bool",
+    "Char",
+    "Cmd",
+    "Float",
+    "Html",
+    "Int",
+    "List",
+    "Maybe",
+    "String",
+    "Sub"
+  ],
+  "constants": [
+    "True",
+    "False",
+    "Nothing",
+    "Just"
+  ],
+  "linePatterns": [],
+  "blocks": "indent",
+  "declares": [
+    "type",
+    "module"
+  ]
+}

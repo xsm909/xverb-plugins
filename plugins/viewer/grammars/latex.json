@@ -1,0 +1,37 @@
+{
+  "id": "latex",
+  "name": "LaTeX",
+  "extensions": [
+    "tex",
+    "sty",
+    "cls",
+    "bib",
+    "ltx",
+    "dtx"
+  ],
+  "lineComment": [
+    "%"
+  ],
+  "strings": [],
+  "keywords": [],
+  "types": [],
+  "constants": [],
+  "linePatterns": [
+    {
+      "match": "\\\\[A-Za-z@]+\\*?",
+      "role": "keyword"
+    },
+    {
+      "match": "@\\w+",
+      "role": "meta"
+    }
+  ],
+  "blocks": "none",
+  "outline": [
+    {
+      "match": "\\\\(?:part|chapter|section|subsection|subsubsection)\\*?\\{([^}]*)\\}",
+      "kind": "section"
+    }
+  ],
+  "numbers": false
+}

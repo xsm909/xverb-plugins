@@ -1,0 +1,108 @@
+{
+  "id": "solidity",
+  "name": "Solidity",
+  "extensions": [
+    "sol"
+  ],
+  "lineComment": [
+    "//"
+  ],
+  "blockComment": [
+    [
+      "/*",
+      "*/"
+    ]
+  ],
+  "strings": [
+    {
+      "open": "\"",
+      "close": "\""
+    },
+    {
+      "open": "'",
+      "close": "'"
+    }
+  ],
+  "keywords": [
+    "abstract",
+    "anonymous",
+    "as",
+    "assembly",
+    "break",
+    "calldata",
+    "catch",
+    "constant",
+    "constructor",
+    "continue",
+    "contract",
+    "delete",
+    "do",
+    "else",
+    "emit",
+    "enum",
+    "error",
+    "event",
+    "external",
+    "fallback",
+    "for",
+    "function",
+    "if",
+    "immutable",
+    "import",
+    "indexed",
+    "interface",
+    "internal",
+    "is",
+    "library",
+    "mapping",
+    "memory",
+    "modifier",
+    "new",
+    "override",
+    "payable",
+    "pragma",
+    "private",
+    "public",
+    "pure",
+    "receive",
+    "return",
+    "returns",
+    "revert",
+    "storage",
+    "struct",
+    "try",
+    "type",
+    "unchecked",
+    "using",
+    "view",
+    "virtual",
+    "while"
+  ],
+  "types": [
+    "address",
+    "bool",
+    "bytes",
+    "bytes32",
+    "int",
+    "int256",
+    "string",
+    "uint",
+    "uint256",
+    "uint8"
+  ],
+  "constants": [
+    "true",
+    "false",
+    "wei",
+    "ether"
+  ],
+  "linePatterns": [],
+  "blocks": "braces",
+  "declares": [
+    "contract",
+    "interface",
+    "library",
+    "function",
+    "struct"
+  ]
+}

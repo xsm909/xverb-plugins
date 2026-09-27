@@ -1,0 +1,116 @@
+{
+  "id": "rust",
+  "name": "Rust",
+  "extensions": [
+    "rs"
+  ],
+  "lineComment": [
+    "//"
+  ],
+  "blockComment": [
+    [
+      "/*",
+      "*/"
+    ]
+  ],
+  "strings": [
+    {
+      "open": "r#\"",
+      "close": "\"#",
+      "escape": "",
+      "multiline": true
+    },
+    {
+      "open": "\"",
+      "close": "\"",
+      "multiline": true
+    }
+  ],
+  "keywords": [
+    "Self",
+    "as",
+    "async",
+    "await",
+    "break",
+    "const",
+    "continue",
+    "crate",
+    "dyn",
+    "else",
+    "enum",
+    "extern",
+    "fn",
+    "for",
+    "if",
+    "impl",
+    "in",
+    "let",
+    "loop",
+    "match",
+    "mod",
+    "move",
+    "mut",
+    "pub",
+    "ref",
+    "return",
+    "self",
+    "static",
+    "struct",
+    "super",
+    "trait",
+    "type",
+    "unsafe",
+    "use",
+    "where",
+    "while"
+  ],
+  "types": [
+    "Arc",
+    "Box",
+    "Option",
+    "Rc",
+    "Result",
+    "String",
+    "Vec",
+    "bool",
+    "char",
+    "f32",
+    "f64",
+    "i128",
+    "i16",
+    "i32",
+    "i64",
+    "i8",
+    "isize",
+    "str",
+    "u128",
+    "u16",
+    "u32",
+    "u64",
+    "u8",
+    "usize"
+  ],
+  "constants": [
+    "true",
+    "false",
+    "None",
+    "Some",
+    "Ok",
+    "Err"
+  ],
+  "linePatterns": [
+    {
+      "match": "#!?\\[.*\\]",
+      "role": "meta"
+    }
+  ],
+  "blocks": "braces",
+  "declares": [
+    "fn",
+    "struct",
+    "enum",
+    "trait",
+    "impl",
+    "mod"
+  ]
+}

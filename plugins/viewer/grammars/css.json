@@ -1,0 +1,72 @@
+{
+  "id": "css",
+  "name": "CSS, SCSS and Less",
+  "extensions": [
+    "css",
+    "scss",
+    "sass",
+    "less",
+    "styl"
+  ],
+  "caseSensitive": false,
+  "lineComment": [
+    "//"
+  ],
+  "blockComment": [
+    [
+      "/*",
+      "*/"
+    ]
+  ],
+  "strings": [
+    {
+      "open": "\"",
+      "close": "\""
+    },
+    {
+      "open": "'",
+      "close": "'"
+    }
+  ],
+  "keywords": [
+    "charset",
+    "container",
+    "each",
+    "else",
+    "extend",
+    "font-face",
+    "for",
+    "forward",
+    "function",
+    "if",
+    "import",
+    "important",
+    "include",
+    "keyframes",
+    "layer",
+    "media",
+    "mixin",
+    "namespace",
+    "page",
+    "return",
+    "supports",
+    "use"
+  ],
+  "types": [],
+  "constants": [],
+  "linePatterns": [
+    {
+      "match": "[.#]?[A-Za-z_][\\w\\-]*(?=\\s*[{,])",
+      "role": "type"
+    },
+    {
+      "match": "@[\\w-]+",
+      "role": "meta"
+    },
+    {
+      "match": "--?[\\w-]+(?=\\s*:)",
+      "role": "keyword"
+    }
+  ],
+  "blocks": "braces"
+}

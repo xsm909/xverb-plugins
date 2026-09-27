@@ -1,0 +1,49 @@
+{
+  "id": "nix",
+  "name": "Nix",
+  "extensions": [
+    "nix"
+  ],
+  "lineComment": [
+    "#"
+  ],
+  "blockComment": [
+    [
+      "/*",
+      "*/"
+    ]
+  ],
+  "strings": [
+    {
+      "open": "''",
+      "close": "''",
+      "escape": "",
+      "multiline": true
+    },
+    {
+      "open": "\"",
+      "close": "\""
+    }
+  ],
+  "keywords": [
+    "assert",
+    "else",
+    "if",
+    "import",
+    "in",
+    "inherit",
+    "let",
+    "or",
+    "rec",
+    "then",
+    "with"
+  ],
+  "types": [],
+  "constants": [
+    "true",
+    "false",
+    "null"
+  ],
+  "linePatterns": [],
+  "blocks": "braces"
+}

@@ -1,0 +1,76 @@
+{
+  "id": "batch",
+  "name": "Windows batch",
+  "extensions": [
+    "bat",
+    "cmd"
+  ],
+  "caseSensitive": false,
+  "lineComment": [
+    "rem ",
+    "REM ",
+    "::",
+    "@rem "
+  ],
+  "strings": [
+    {
+      "open": "\"",
+      "close": "\""
+    }
+  ],
+  "keywords": [
+    "call",
+    "cd",
+    "chdir",
+    "cls",
+    "copy",
+    "defined",
+    "del",
+    "dir",
+    "do",
+    "echo",
+    "else",
+    "endlocal",
+    "erase",
+    "errorlevel",
+    "exist",
+    "exit",
+    "for",
+    "goto",
+    "if",
+    "in",
+    "md",
+    "mkdir",
+    "move",
+    "not",
+    "off",
+    "on",
+    "pause",
+    "popd",
+    "pushd",
+    "rd",
+    "ren",
+    "rename",
+    "rmdir",
+    "set",
+    "setlocal",
+    "shift",
+    "start",
+    "title",
+    "type"
+  ],
+  "types": [],
+  "constants": [],
+  "linePatterns": [
+    {
+      "match": ":[A-Za-z_]\\w*",
+      "role": "meta"
+    },
+    {
+      "match": "%[\\w~]+%?",
+      "role": "type"
+    }
+  ],
+  "blocks": "none",
+  "statementsEndAtLine": true
+}

@@ -1,0 +1,138 @@
+{
+  "id": "glsl",
+  "name": "GLSL",
+  "extensions": [
+    "glsl",
+    "vert",
+    "frag",
+    "geom",
+    "comp",
+    "tesc",
+    "tese"
+  ],
+  "lineComment": [
+    "//"
+  ],
+  "blockComment": [
+    [
+      "/*",
+      "*/"
+    ]
+  ],
+  "strings": [
+    {
+      "open": "\"",
+      "close": "\""
+    },
+    {
+      "open": "'",
+      "close": "'"
+    }
+  ],
+  "keywords": [
+    "attribute",
+    "break",
+    "buffer",
+    "case",
+    "centroid",
+    "const",
+    "continue",
+    "default",
+    "discard",
+    "do",
+    "else",
+    "flat",
+    "for",
+    "highp",
+    "if",
+    "in",
+    "inout",
+    "invariant",
+    "layout",
+    "lowp",
+    "mediump",
+    "noperspective",
+    "out",
+    "patch",
+    "precision",
+    "return",
+    "sample",
+    "shared",
+    "smooth",
+    "struct",
+    "subroutine",
+    "switch",
+    "uniform",
+    "varying",
+    "while"
+  ],
+  "types": [
+    "Buffer",
+    "RWStructuredBuffer",
+    "RWTexture2D",
+    "SamplerState",
+    "StructuredBuffer",
+    "Texture2D",
+    "Texture3D",
+    "TextureCube",
+    "bool",
+    "bvec2",
+    "bvec3",
+    "bvec4",
+    "cbuffer",
+    "double",
+    "float",
+    "float2",
+    "float2x2",
+    "float3",
+    "float3x3",
+    "float4",
+    "float4x4",
+    "half",
+    "half2",
+    "half3",
+    "half4",
+    "int",
+    "int2",
+    "int3",
+    "int4",
+    "ivec2",
+    "ivec3",
+    "ivec4",
+    "mat2",
+    "mat2x2",
+    "mat3",
+    "mat3x3",
+    "mat4",
+    "mat4x4",
+    "sampler2D",
+    "sampler3D",
+    "samplerCube",
+    "texture2D",
+    "uint",
+    "uint2",
+    "uint3",
+    "uint4",
+    "uvec2",
+    "uvec3",
+    "uvec4",
+    "vec2",
+    "vec3",
+    "vec4",
+    "void"
+  ],
+  "constants": [
+    "true",
+    "false"
+  ],
+  "linePatterns": [
+    {
+      "match": "#\\s*\\w+.*",
+      "role": "meta"
+    }
+  ],
+  "blocks": "braces",
+  "declares": [
+    "struct"
+  ]
+}

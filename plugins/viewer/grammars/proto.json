@@ -1,0 +1,78 @@
+{
+  "id": "proto",
+  "name": "Protocol Buffers",
+  "extensions": [
+    "proto"
+  ],
+  "lineComment": [
+    "//"
+  ],
+  "blockComment": [
+    [
+      "/*",
+      "*/"
+    ]
+  ],
+  "strings": [
+    {
+      "open": "\"",
+      "close": "\""
+    },
+    {
+      "open": "'",
+      "close": "'"
+    }
+  ],
+  "keywords": [
+    "edition",
+    "enum",
+    "extend",
+    "extensions",
+    "import",
+    "map",
+    "message",
+    "oneof",
+    "option",
+    "optional",
+    "package",
+    "public",
+    "repeated",
+    "required",
+    "reserved",
+    "returns",
+    "rpc",
+    "service",
+    "stream",
+    "syntax",
+    "to",
+    "weak"
+  ],
+  "types": [
+    "bool",
+    "bytes",
+    "double",
+    "fixed32",
+    "fixed64",
+    "float",
+    "int32",
+    "int64",
+    "sfixed32",
+    "sfixed64",
+    "sint32",
+    "sint64",
+    "string",
+    "uint32",
+    "uint64"
+  ],
+  "constants": [
+    "true",
+    "false"
+  ],
+  "linePatterns": [],
+  "blocks": "braces",
+  "declares": [
+    "message",
+    "enum",
+    "service"
+  ]
+}

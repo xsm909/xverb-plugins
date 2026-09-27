@@ -1,0 +1,114 @@
+{
+  "id": "zig",
+  "name": "Zig",
+  "extensions": [
+    "zig",
+    "zon"
+  ],
+  "lineComment": [
+    "//"
+  ],
+  "strings": [
+    {
+      "open": "\"",
+      "close": "\""
+    },
+    {
+      "open": "'",
+      "close": "'"
+    }
+  ],
+  "keywords": [
+    "addrspace",
+    "align",
+    "allowzero",
+    "and",
+    "anyframe",
+    "anytype",
+    "asm",
+    "async",
+    "await",
+    "break",
+    "callconv",
+    "catch",
+    "comptime",
+    "const",
+    "continue",
+    "defer",
+    "else",
+    "enum",
+    "errdefer",
+    "error",
+    "export",
+    "extern",
+    "fn",
+    "for",
+    "if",
+    "inline",
+    "linksection",
+    "noalias",
+    "noinline",
+    "nosuspend",
+    "opaque",
+    "or",
+    "orelse",
+    "packed",
+    "pub",
+    "resume",
+    "return",
+    "struct",
+    "suspend",
+    "switch",
+    "test",
+    "threadlocal",
+    "try",
+    "union",
+    "unreachable",
+    "usingnamespace",
+    "var",
+    "volatile",
+    "while"
+  ],
+  "types": [
+    "anyerror",
+    "bool",
+    "f128",
+    "f16",
+    "f32",
+    "f64",
+    "i128",
+    "i16",
+    "i32",
+    "i64",
+    "i8",
+    "isize",
+    "noreturn",
+    "type",
+    "u128",
+    "u16",
+    "u32",
+    "u64",
+    "u8",
+    "usize",
+    "void"
+  ],
+  "constants": [
+    "true",
+    "false",
+    "null",
+    "undefined"
+  ],
+  "linePatterns": [
+    {
+      "match": "@\\w+",
+      "role": "meta"
+    }
+  ],
+  "blocks": "braces",
+  "declares": [
+    "fn",
+    "struct",
+    "enum",
+    "union"
+  ]
+}

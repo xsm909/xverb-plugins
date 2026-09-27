@@ -1,0 +1,84 @@
+{
+  "id": "cmake",
+  "name": "CMake",
+  "extensions": [
+    "cmake"
+  ],
+  "names": [
+    "cmakelists.txt"
+  ],
+  "caseSensitive": false,
+  "lineComment": [
+    "#"
+  ],
+  "strings": [
+    {
+      "open": "\"",
+      "close": "\""
+    }
+  ],
+  "keywords": [
+    "add_compile_definitions",
+    "add_compile_options",
+    "add_custom_command",
+    "add_custom_target",
+    "add_definitions",
+    "add_dependencies",
+    "add_executable",
+    "add_library",
+    "add_subdirectory",
+    "cmake_minimum_required",
+    "configure_file",
+    "else",
+    "elseif",
+    "endforeach",
+    "endfunction",
+    "endif",
+    "endmacro",
+    "endwhile",
+    "file",
+    "find_library",
+    "find_package",
+    "find_path",
+    "foreach",
+    "function",
+    "get_filename_component",
+    "if",
+    "include",
+    "include_directories",
+    "install",
+    "list",
+    "macro",
+    "message",
+    "option",
+    "project",
+    "return",
+    "set",
+    "set_property",
+    "set_target_properties",
+    "string",
+    "target_compile_definitions",
+    "target_compile_features",
+    "target_compile_options",
+    "target_include_directories",
+    "target_link_libraries",
+    "target_sources",
+    "while"
+  ],
+  "types": [],
+  "constants": [
+    "ON",
+    "OFF",
+    "TRUE",
+    "FALSE",
+    "YES",
+    "NO"
+  ],
+  "linePatterns": [
+    {
+      "match": "\\$\\{[^}]*\\}",
+      "role": "type"
+    }
+  ],
+  "blocks": "none"
+}

@@ -19,9 +19,25 @@ This plugin carries no code. What a language *looks like* is data — its
 comments, its quotes, the words it reserves, and the patterns that say what a
 whole line is — and the application reads a file once with that.
 
-Twelve ship: Dart, Python, C and C++, JavaScript and TypeScript, shell,
-PowerShell, XML and HTML, YAML, INI, TOML, SQL, and the ignore lists git and its
-neighbours keep. A thirteenth is a block of data in this file, not a build.
+Sixty-one ship, one file each in `grammars/`:
+
+- **Systems and applications** — C and C++ (and CUDA), C#, Go, Rust, Java,
+  Kotlin, Swift, Objective-C, Scala, Dart, Zig, Nim, Pascal and Delphi,
+  Fortran, Ada, Visual Basic, assembly.
+- **Scripts** — Python, JavaScript and TypeScript, Ruby, PHP, Perl, Lua, R,
+  Julia, Tcl, AWK, shell, PowerShell, Windows batch, Groovy and Gradle.
+- **Functional** — Haskell, OCaml, F#, Elm, Elixir, Erlang, Clojure, Lisp and
+  Scheme.
+- **Shaders** — GLSL, HLSL with Unreal's `.usf` and `.ush` and Unity's, WGSL.
+- **Hardware** — Verilog and SystemVerilog, VHDL.
+- **Data and configuration** — SQL, GraphQL, Protocol Buffers, Terraform and
+  HCL, Nix, Solidity, XML and HTML (Vue and Svelte among them), CSS, SCSS and
+  Less, YAML, TOML, INI, CMake, Makefiles, Dockerfiles, LaTeX, Markdown, and
+  the ignore lists git and its neighbours keep.
+
+The next is a file in that folder, not a build. No two claim the same
+extension: `.fs` is F#, not a fragment shader, and `.inc` and `.cls`, which
+three languages would each have wanted, are left to plain text.
 
 **A grammar names roles, never colours** — keyword, type, string, comment — and
 what a role looks like comes from the appearance settings, so a file still

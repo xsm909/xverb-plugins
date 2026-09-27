@@ -10,7 +10,12 @@
     "hxx",
     "cc",
     "inl",
-    "ino"
+    "ino",
+    "cu",
+    "cuh",
+    "ipp",
+    "tcc",
+    "tpp"
   ],
   "lineComment": [
     "//"

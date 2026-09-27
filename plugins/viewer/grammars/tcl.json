@@ -1,0 +1,90 @@
+{
+  "id": "tcl",
+  "name": "Tcl",
+  "extensions": [
+    "tcl",
+    "tk"
+  ],
+  "lineComment": [
+    "#"
+  ],
+  "strings": [
+    {
+      "open": "\"",
+      "close": "\""
+    }
+  ],
+  "keywords": [
+    "after",
+    "append",
+    "array",
+    "break",
+    "catch",
+    "cd",
+    "close",
+    "concat",
+    "continue",
+    "dict",
+    "else",
+    "elseif",
+    "eof",
+    "error",
+    "eval",
+    "exec",
+    "exit",
+    "expr",
+    "file",
+    "for",
+    "foreach",
+    "format",
+    "gets",
+    "global",
+    "if",
+    "incr",
+    "info",
+    "join",
+    "lappend",
+    "lindex",
+    "linsert",
+    "list",
+    "llength",
+    "lrange",
+    "lreplace",
+    "lsearch",
+    "lsort",
+    "namespace",
+    "open",
+    "package",
+    "proc",
+    "puts",
+    "read",
+    "regexp",
+    "regsub",
+    "rename",
+    "return",
+    "set",
+    "source",
+    "split",
+    "string",
+    "switch",
+    "trace",
+    "unset",
+    "upvar",
+    "variable",
+    "vwait",
+    "while"
+  ],
+  "types": [],
+  "constants": [],
+  "linePatterns": [
+    {
+      "match": "\\$[\\w:]+",
+      "role": "type"
+    }
+  ],
+  "blocks": "braces",
+  "declares": [
+    "proc"
+  ],
+  "statementsEndAtLine": true
+}

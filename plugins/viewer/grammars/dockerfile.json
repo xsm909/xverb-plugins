@@ -5,8 +5,8 @@
     "dockerfile"
   ],
   "names": [
-    "dockerfile",
-    "containerfile"
+    "containerfile",
+    "dockerfile"
   ],
   "caseSensitive": false,
   "lineComment": [
