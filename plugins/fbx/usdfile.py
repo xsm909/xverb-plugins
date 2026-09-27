@@ -454,7 +454,10 @@ class Stage:
 
     def walk(self):
         """Every prim that is drawn, parents first, with its world matrix."""
-        todo = [(child, IDENTITY) for child in reversed(self.pseudo_root.children)]
+        # The view reads no axis setting and has Y up: a Z-up stage is tipped
+        # back a quarter turn about X, as the FBX reader does.
+        top = _Z_UP_TO_Y_UP if self.up_axis.upper() == "Z" else IDENTITY
+        todo = [(child, top) for child in reversed(self.pseudo_root.children)]
         while todo:
             prim, parent = todo.pop()
             if prim.abstract or not prim.defined:
@@ -473,6 +476,9 @@ class Stage:
 
 
 # -- transforms -----------------------------------------------------------------------
+
+#: (x, y, z) to (x, z, -y), met by a row vector.
+_Z_UP_TO_Y_UP = [1.0, 0, 0, 0, 0, 0, -1.0, 0, 0, 1.0, 0, 0, 0, 0, 0, 1.0]
 
 def _rotation(axis: str, degrees: float) -> List[float]:
     c = math.cos(math.radians(degrees))

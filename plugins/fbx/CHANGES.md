@@ -1,5 +1,9 @@
 # 3D: changes
 
+## 0.16.1 — 2026-09-27
+
+- A USD stage with Z up — Pixar's kitchen, anything from Houdini's Z-up scenes — stands up instead of lying on its back.
+
 ## 0.16.0 — 2026-09-27
 
 - USD — .usd, .usda, .usdc and .usdz — composed and drawn: text and binary layers, sublayers, variants, references and payloads, materials and textures; Shift+F3 lists the layers read and the variants shown.

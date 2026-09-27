@@ -203,8 +203,10 @@ check("the box is its size, where its translate puts it",
       abs(min(xs) - 8) < 1e-6 and abs(max(xs) - 12) < 1e-6, (min(xs), max(xs)))
 
 shape = by_name.get("Shape", [{}])[0]
-ys = set(round(y, 6) for y in shape.get("positions", [])[1::3])
-check("the referenced mesh is drawn under the prim that references it", ys == {5.0}, ys)
+# The stage is Z-up and is tipped to Y-up for the view: (x, y, z) -> (x, z, -y),
+# so the reference's translate of 5 in Y lands at -5 in Z.
+zs = set(round(z, 6) for z in shape.get("positions", [])[2::3])
+check("the referenced mesh is drawn under the prim that references it", zs == {-5.0}, zs)
 check("its material, bound inside its own file, is carried across", shape.get("color") == "#FF0000",
       shape.get("color"))
 
@@ -214,7 +216,7 @@ check("the selected variant, not the first", max(only.get("positions", [0])) == 
 
 mirror = by_name.get("Mirror", [{}])[0]
 check("a left-handed triangle is turned to face the same way",
-      mirror.get("normals", [0, 0, 0])[2] < 0, mirror.get("normals"))
+      mirror.get("normals", [0, 0, 0])[1] < 0, mirror.get("normals"))
 
 split = by_name.get("Split", [])
 colours = sorted(p["color"] for p in split)
