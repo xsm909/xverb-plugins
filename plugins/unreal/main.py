@@ -39,11 +39,12 @@ from urllib.parse import quote, unquote
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from xverb import Plugin, error, html  # noqa: E402
+from xverb import Plugin, error, html, image  # noqa: E402
 
 import uasset  # noqa: E402
 import ueanim  # noqa: E402
 import uemesh  # noqa: E402
+import uetexture  # noqa: E402
 
 plugin = Plugin("org.xverb.unreal", "Unreal assets")
 
@@ -120,6 +121,17 @@ def asset(url: str) -> dict:
         return refusal
     klass = package.main_class()
     notes: List[str] = []
+    if klass in ("Texture2D", "TextureCube", "Texture2DArray", "VolumeTexture"):
+        try:
+            data, mime, _ = uetexture.picture(_whole(url))
+            return image(data, mime)
+        except uemesh.NeedsOodle:
+            notes.append(plugin.tr(
+                "The picture is compressed with Oodle, whose decompressor comes with Unreal "
+                "Engine; with Unreal installed on this machine it is shown."))
+        except (uetexture.TextureError, uemesh.MeshError, uasset.UassetError,
+                struct.error, IndexError, ValueError) as failure:
+            notes.append(plugin.tr("The picture could not be read: {error}", {"error": failure}))
     if klass in ("StaticMesh", "SkeletalMesh"):
         try:
             shown = _mesh_in_3d(url, klass, notes)

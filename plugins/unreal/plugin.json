@@ -1,8 +1,8 @@
 {
   "id": "org.xverb.unreal",
   "name": "Unreal assets",
-  "version": "0.3.0",
-  "description": "Unreal Engine assets and maps, .uasset and .umap: static and skeletal meshes in 3D, an animation played on its character's body (or its bones), and for everything the page the Content Browser would show — thumbnail, class, engine, source file, hover tags, the assets it uses. Meshes need the Oodle decompressor that comes with Unreal Engine, found in the install on this machine. From UE 4.0 to 5.7; nothing is ever written.",
+  "version": "0.4.0",
+  "description": "Unreal Engine assets and maps, .uasset and .umap: textures as the picture that was imported, static and skeletal meshes in 3D, an animation played on its character's body (or its bones), and for everything the page the Content Browser would show — thumbnail, class, engine, source file, hover tags, the assets it uses. Most need the Oodle decompressor that comes with Unreal Engine, found in the install on this machine. From UE 4.0 to 5.7; nothing is ever written.",
   "category": "Viewers",
   "author": "xverb",
   "homepage": "https://github.com/xsm909/xverb-plugins",

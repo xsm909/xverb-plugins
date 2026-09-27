@@ -1,5 +1,9 @@
 # Unreal assets: changes
 
+## 0.4.0 — 2026-09-27
+
+- A texture opens as its source picture — PNG and JPEG as imported, raw pixels in any of the source formats, and the UE Delta coding worked out from the files.
+
 ## 0.3.0 — 2026-09-27
 
 - Static and skeletal meshes in 3D, unpacked with the Oodle that comes with Unreal Engine; an animation plays on its character's body, skinned, found through its skeleton's preview mesh.

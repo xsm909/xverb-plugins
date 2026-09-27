@@ -43,6 +43,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import uasset  # noqa: E402
 import ueanim  # noqa: E402
+import uemesh  # noqa: E402
+import uetexture  # noqa: E402
 
 FAILED = []
 
@@ -112,6 +114,16 @@ for folder in folders:
                 if bones is None or not all(-1 <= q < i for i, q in enumerate(bones.parents)):
                     raise uasset.UassetError("parents out of order")
                 tally["skeleton"] += 1
+            elif klass == "Texture2D" and tally["texture"] + tally["texture needs Oodle"] < 300:
+                # A picture out of every texture, up to a few hundred: the
+                # decoding is the slow part of the whole run.
+                try:
+                    data, _, _ = uetexture.picture(package)
+                    if not data.startswith((b"\x89PNG", b"\xff\xd8")):
+                        raise uasset.UassetError("not a picture")
+                    tally["texture"] += 1
+                except uemesh.NeedsOodle:
+                    tally["texture needs Oodle"] += 1
             elif klass == "AnimSequence":
                 anim = ueanim.animation(package)
                 if anim is not None and anim.tracks:
@@ -122,7 +134,8 @@ for folder in folders:
                     tally["animation, " + anim.model] += 1
                 else:
                     tally["animation of curves only"] += 1
-        except (uasset.UassetError, struct.error, IndexError, KeyError) as failure:
+        except (uasset.UassetError, uetexture.TextureError, uemesh.MeshError,
+                struct.error, IndexError, KeyError) as failure:
             tally["problem"] += 1
             first_bad.setdefault("%s: %s" % (klass, failure), path)
     print("%s: %d package(s) in %.1fs — %s" % (folder, len(files), time.time() - started,

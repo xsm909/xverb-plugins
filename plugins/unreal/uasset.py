@@ -161,6 +161,7 @@ class Package:
         self.import_count = self.import_offset = 0
         self.thumbnail_offset = 0
         self.soft_count = self.soft_offset = 0
+        self.bulk_start = 0
         self.registry_offset = 0
         self.saved_by = ""
         self.compatible = ""
@@ -288,6 +289,7 @@ class Package:
         if self.legacy > -7:
             r.i32()  # NumTextureAllocations
         self.registry_offset = r.i32()
+        self.bulk_start = r.i64()
 
     def reach(self) -> int:
         """How far into the file the header's tables start, at the furthest."""
