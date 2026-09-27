@@ -587,6 +587,49 @@ def api_shape() -> None:
           [pin["id"] for pin in nodes["11"]["outputs"]] == ["out 0", "out 1"])
 
 
+def houdini_shape() -> None:
+    """A Houdini scene in both of its wrappings: nodes, a wire bent at a dot,
+    an input left empty, a flag, and the probe that claims it."""
+    import houdini
+    texts = [
+        ("obj/geo1.init", "type = geo\n"),
+        ("obj/geo1/grid1.init", "type = grid\n"),
+        ("obj/geo1/grid1.def", "position 0 2\nflags =  lock off display off bypass off\n"
+                               "inputs\n{\n}\n"),
+        ("obj/geo1/grid1.parm", "{\nsize\t[ 0\tlocks=0 ]\t(\t10\t10\t)\n}\n"),
+        ("obj/geo1/__dot1.networkdotinit", '{"version":1,"input":"grid1 0 1"}'),
+        ("obj/geo1/copy1.init", "type = copytopoints::2.0\n"),
+        ("obj/geo1/copy1.def", "position 0 0\nflags =  lock off display on bypass off\n"
+                               'inputs\n{\n0 \t(__dot1) 0 1\n1 \t"" 0 1\n}\n'),
+    ]
+    mime = ["MIME-Version: 1.0",
+            'Content-Type: multipart/mixed; boundary="HOUDINIMIMEBOUNDARYx"', ""]
+    for name, body in texts:
+        mime += ["--HOUDINIMIMEBOUNDARYx", 'Content-Disposition: attachment; filename="%s"' % name,
+                 "Content-Type: text/plain", "", body]
+    mime.append("--HOUDINIMIMEBOUNDARYx--")
+    commercial = "\n".join(mime).encode()
+    apprentice = b"".join(b"HouNC\x1a" + b"1033600baa0654f0f7c09a7e597d" + name.encode()
+                          + b"\0" + body.encode() for name, body in texts)
+    for label, data in (("hip", commercial), ("hipnc", apprentice)):
+        check("%s: the probe claims it" % label, claim.looks_like_a_graph(data[:4096]))
+        body, dropped = houdini.read(data, 100)
+        ids = sorted(n["id"] for n in body["nodes"])
+        check("%s: every node, in its network's frame" % label,
+              ids == ["obj/geo1", "obj/geo1/copy1", "obj/geo1/grid1"]
+              and {g["title"] for g in body["groups"]} == {"/obj", "/obj/geo1"})
+        wires = [(l["from"], l["to"], l["toPin"]) for l in body["links"]]
+        check("%s: the wire through the dot reaches the grid; the empty input is none" % label,
+              wires == [("obj/geo1/grid1", "obj/geo1/copy1", "in0")])
+        copy = [n for n in body["nodes"] if n["id"] == "obj/geo1/copy1"][0]
+        check("%s: the displayed node is the output, and says so" % label,
+              copy["role"] == "output" and "display" in copy.get("badges", []))
+        grid = [n for n in body["nodes"] if n["id"] == "obj/geo1/grid1"][0]
+        check("%s: parameters on the face" % label,
+              grid.get("fields") == [{"label": "size", "value": "10 10"}])
+        check("%s: above sits higher" % label, grid["y"] < copy["y"])
+
+
 def main() -> None:
     check("a workflow is recognised", comfyui.looks_like(WORKFLOW))
     check("a bare list is not", not comfyui.looks_like([1, 2, 3]))
@@ -638,6 +681,7 @@ def main() -> None:
     n8n_shape()
     nodered_shape()
     api_shape()
+    houdini_shape()
     real_files()
 
     print(json.dumps(body["nodes"][0], indent=2))

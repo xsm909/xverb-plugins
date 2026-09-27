@@ -28,6 +28,7 @@ from __future__ import annotations
 import comfyapi
 import comfyui
 import godot
+import houdini
 import n8n
 import nodered
 import parse
@@ -58,6 +59,10 @@ def looks_like_a_graph(head: bytes) -> bool:
     # Shift+F3 further on, which is where the plan put it.
     if png.is_png(head):
         return False
+
+    # A Houdini scene is bytes before it is text, and says so in its first.
+    if houdini.is_scene(head):
+        return True
 
     try:
         text = head.decode("utf-8-sig", errors="replace")

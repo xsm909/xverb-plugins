@@ -60,6 +60,7 @@ import comfyui  # noqa: E402
 import n8n  # noqa: E402
 import nodered  # noqa: E402
 import godot  # noqa: E402
+import houdini  # noqa: E402
 import parse  # noqa: E402
 import png  # noqa: E402
 
@@ -93,6 +94,10 @@ def _load(url: str):
         return None, error("The file could not be read: %s" % failure)
     if not raw:
         return None, error("The file is empty.")
+
+    # A Houdini scene is an archive of texts, read as the bytes it is.
+    if houdini.is_scene(raw[:600]):
+        return raw, None
 
     if png.is_png(raw):
         inside = png.workflow_json(raw)
@@ -131,7 +136,7 @@ def _load(url: str):
 @plugin.viewer(
     "nodes.graph",
     "Node graph",
-    extensions=["json", "png", "tscn", "escn"],
+    extensions=["json", "png", "tscn", "escn", "hip", "hipnc", "hiplc"],
     priority=5,
     probe=looks_like_a_graph,
     produces="graph",
@@ -140,6 +145,18 @@ def graph(url: str) -> dict:
     document, refusal = _load(url)
     if refusal is not None:
         return refusal
+
+    if isinstance(document, bytes):
+        body, dropped = houdini.read(document, MAX_NODES)
+        return nodes(
+            body["nodes"],
+            links=body["links"],
+            groups=body["groups"],
+            notes=body["notes"],
+            layout=body["layout"],
+            direction=body["direction"],
+            truncated=dropped > 0,
+        )
 
     # The scene reader takes text; the rest take a parsed document.
     if isinstance(document, str):

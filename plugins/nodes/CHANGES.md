@@ -1,5 +1,9 @@
 # Node graphs: changes
 
+## 0.8.0 — 2026-09-27
+
+- Houdini scenes — .hip, .hipnc, .hiplc — drawn as their networks: a frame per network, each node where it was put, with its type, its first parameters and its flags; wires followed through dots.
+
 ## 0.7.1 — 2026-09-06
 
 - Renamed with the application: the id is org.xverb, the SDK is xverb.

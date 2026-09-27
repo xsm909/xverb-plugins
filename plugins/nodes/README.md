@@ -38,3 +38,16 @@ Run the self-test with no application around it:
 ```
 python3 selftest.py
 ```
+
+## Houdini scenes
+
+A `.hip` holds no geometry — it holds the nodes that make it, and Houdini
+cooks them on opening. So it is drawn as the node graph it is: every network
+(`/obj/geo1`, `/stage`, `/mat`…) a frame of its own, stacked, each node where
+the artist put it, its type under its name, its first parameters on its face,
+and badges for its flags — display, render, bypassed, locked — and for a node
+that is a network itself. The file is an archive of small texts per node,
+joined as MIME parts in a `.hip` and behind `HouNC`/`HouLC` headers in a
+`.hipnc`/`.hiplc`; both are read. A wire bent at a dot is followed back to the
+node it comes from.
+
