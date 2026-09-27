@@ -43,7 +43,7 @@ INDEX = ROOT / "index.json"
 #: The plugin API levels an Xverb of today runs: 1 is everything written before
 #: levels were counted, 2 (Xverb 1.1.0.502) added pictures in a document.
 API_OLDEST = 1
-API_VERSION = 2
+API_VERSION = 3
 RUNTIMES = {"python", "declarative"}
 
 # `category` is required. The manager groups by it the way an app store does,

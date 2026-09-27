@@ -1,5 +1,9 @@
 # 3D: changes
 
+## 0.14.0 — 2026-09-27
+
+- A big model says how far it has got, and stops when you leave it. Needs Xverb 1.1.0.507.
+
 ## 0.13.0 — 2026-09-13
 
 - An animation with no model in it plays on its skeleton.

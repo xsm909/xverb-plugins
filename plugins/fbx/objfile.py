@@ -99,9 +99,17 @@ def materials(text: str) -> Dict[str, dict]:
 
 
 def meshes(data: bytes, resolve: Optional[Callable[[str], bytes]] = None,
-           max_triangles: int = 400000) -> Tuple[List[dict], dict]:
-    """Every group of faces in the file, cut by material, in the usual shape."""
+           max_triangles: int = 400000,
+           report: Optional[Callable[[float], None]] = None,
+           ) -> Tuple[List[dict], dict]:
+    """Every group of faces in the file, cut by material, in the usual shape.
+
+    ``report`` is told the share of the lines read so far, now and then —
+    this loop is nearly all of the time a big OBJ takes.
+    """
     text = data.decode("utf-8", "replace")
+    lines = text.splitlines()
+    count = len(lines) or 1
 
     points: List[float] = []
     uvs: List[float] = []
@@ -115,7 +123,9 @@ def meshes(data: bytes, resolve: Optional[Callable[[str], bytes]] = None,
     total = 0
     dropped = 0
 
-    for line in text.splitlines():
+    for at, line in enumerate(lines):
+        if report is not None and at % 16384 == 0:
+            report(at / count)
         line = line.split("#", 1)[0].strip()
         if not line:
             continue

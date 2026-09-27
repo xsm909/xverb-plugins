@@ -112,6 +112,8 @@ class Model:
                 self.data,
                 lambda name: plugin.read_file(_sibling(self.url, name),
                                               max_bytes=MAX_BYTES),
+                report=lambda share: plugin.progress(
+                    READING_SHARE_OBJ + (1 - READING_SHARE_OBJ) * share),
             )
             return self.parts, note
         if self.kind == "gltf":
@@ -146,9 +148,42 @@ class Model:
         return animation.alone(self.scene, geometry._axis_fix(self.scene))
 
 
+#: How much of the bar the reading takes, where the parsing after it reports
+#: too. Only an OBJ's parser does; for the others the reading is all the bar
+#: says, and it stops there until the model arrives rather than make up the
+#: rest.
+READING_SHARE_OBJ = 0.2
+
+
+def _read(url: str, share: float) -> bytes:
+    """The whole file, in pieces, saying how far through it the reading is.
+
+    ``share`` is the part of the bar the reading stands for. Four megabytes a
+    piece: small enough that a 30 MB model moves the bar several times, large
+    enough that the pieces cost nothing next to the pipe.
+    """
+    size = int((plugin.stat(url) or {}).get("size") or 0)
+    if size <= 0:
+        return plugin.read_file(url, max_bytes=MAX_BYTES)
+    want = min(size, MAX_BYTES)
+    pieces = []
+    got = 0
+    while got < want:
+        plugin.progress(share * got / want)
+        piece = plugin.read_file(url, max_bytes=min(4 << 20, want - got),
+                                 offset=got)
+        if not piece:
+            break
+        pieces.append(piece)
+        got += len(piece)
+    plugin.progress(share)
+    return b"".join(pieces)
+
+
 def _load(url: str):
     """The file, parsed, or the content that explains why not."""
-    data = plugin.read_file(url, max_bytes=MAX_BYTES)
+    obj = url.lower().rsplit(".", 1)[-1] == "obj"
+    data = _read(url, READING_SHARE_OBJ if obj else 1.0)
     if not data:
         return None, error("The file is empty, or could not be read.")
     try:
