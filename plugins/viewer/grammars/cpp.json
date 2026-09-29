@@ -15,7 +15,8 @@
     "cuh",
     "ipp",
     "tcc",
-    "tpp"
+    "tpp",
+    "hip"
   ],
   "lineComment": [
     "//"
