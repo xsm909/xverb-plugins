@@ -588,8 +588,9 @@ def api_shape() -> None:
 
 
 def houdini_shape() -> None:
-    """A Houdini scene in both of its wrappings: nodes, a wire bent at a dot,
-    an input left empty, a flag, and the probe that claims it."""
+    """A Houdini scene in each of its wrappings — MIME, HouNC, cpio — with
+    nodes, a wire bent at a dot, an input left empty, a flag, the probe that
+    claims it, and an input written the old way, without its output."""
     import houdini
     texts = [
         ("obj/geo1.init", "type = geo\n"),
@@ -611,7 +612,16 @@ def houdini_shape() -> None:
     commercial = "\n".join(mime).encode()
     apprentice = b"".join(b"HouNC\x1a" + b"1033600baa0654f0f7c09a7e597d" + name.encode()
                           + b"\0" + body.encode() for name, body in texts)
-    for label, data in (("hip", commercial), ("hipnc", apprentice)):
+    # The commercial kind as Houdini has long written it: a portable cpio
+    # archive, every field octal digits, a `.start` first and a trailer last.
+    def member(name: str, body: bytes) -> bytes:
+        raw = name.encode() + b"\0"
+        return (b"070707" + b"000001" + b"000000" + b"000666" + b"000000" * 2 + b"000001"
+                + b"000000" + b"%011o" % 0 + b"%06o" % len(raw) + b"%011o" % len(body)
+                + raw + body)
+    cpio = member(".start", b"fplayback -i on\n") + b"".join(
+        member(name, body.encode()) for name, body in texts) + member("TRAILER!!!", b"")
+    for label, data in (("hip", commercial), ("hipnc", apprentice), ("hip in cpio", cpio)):
         check("%s: the probe claims it" % label, claim.looks_like_a_graph(data[:4096]))
         body, dropped = houdini.read(data, 100)
         ids = sorted(n["id"] for n in body["nodes"])
@@ -627,7 +637,41 @@ def houdini_shape() -> None:
         grid = [n for n in body["nodes"] if n["id"] == "obj/geo1/grid1"][0]
         check("%s: parameters on the face" % label,
               grid.get("fields") == [{"label": "size", "value": "10 10"}])
-        check("%s: above sits higher" % label, grid["y"] < copy["y"])
+        # Houdini flows down; drawn turned a quarter, what fed a node is to
+        # its left, so the wire runs straight from output to input.
+        check("%s: upstream sits to the left" % label, grid["x"] < copy["x"])
+
+    old = [("obj/cam1.init", "type = cam\n"), ("obj/null1.init", "type = null\n"),
+           ("obj/null1.def", "position 0 2\ninputs\n{\n}\n"),
+           ("obj/cam1.def", "position 0 0\ninputs\n{\n0 \tnull1\n}\n")]
+    data = member(".start", b"") + b"".join(member(n, b.encode()) for n, b in old)
+    body, _ = houdini.read(data, 100)
+    check("a 2002 scene's input, written without its output, is a wire",
+          [(l["from"], l["to"]) for l in body["links"]] == [("obj/null1", "obj/cam1")])
+
+    # A DOP object reading a SOP through a path, and two nodes Houdini left
+    # in one place: a reference drawn as the other kind of link, connectors
+    # without words, and no two boxes on each other.
+    scene = [("obj/geo1.init", "type = geo\n"),
+             ("obj/geo1.def", "position 0 0\ninputs\n{\n}\n"),
+             ("obj/geo1/out1.init", "type = null\n"),
+             ("obj/geo1/out1.def", "position 0 0\ninputs\n{\n}\n"),
+             ("obj/dop.init", "type = dopnet\n"),
+             ("obj/dop.def", "position 0 0\ninputs\n{\n}\n"),
+             ("obj/dop/rbd.init", "type = rbdobject\n"),
+             ("obj/dop/rbd.def", "position 0 0\ninputs\n{\n}\n"),
+             ("obj/dop/rbd.parm",
+              '{\nsoppath\t[ 0\tlocks=0 ]\t(\t"`opinputpath(\\"/obj/geo1/out1\\", 0)`"\t)\n}\n')]
+    data = member(".start", b"") + b"".join(member(n, b.encode()) for n, b in scene)
+    body, _ = houdini.read(data, 100)
+    refs = [(l["from"], l["to"], l.get("role"), l.get("label")) for l in body["links"]]
+    check("a path in a parameter is a link of the other kind, named by it",
+          refs == [("obj/geo1/out1", "obj/dop/rbd", "flow", "soppath")])
+    check("connectors carry no words to run into the fields",
+          all(p["label"] == " " for n in body["nodes"] for p in n["inputs"] + n["outputs"]))
+    boxes = [(n["group"], n["x"], n["y"]) for n in body["nodes"]]
+    check("nodes Houdini left in one place are not drawn on each other",
+          len(set(boxes)) == len(boxes))
 
 
 def main() -> None:

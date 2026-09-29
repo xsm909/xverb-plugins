@@ -164,7 +164,11 @@ def read(document: dict, cap: int) -> Tuple[dict, int]:
     boxes = boxes[:cap]
 
     known = {str(entry.get("name")) for entry in boxes}
+    # n8n keys its connections by name; a file that keys them by a node's id
+    # is read through the id as well.
+    by_id = {str(entry.get("id")): str(entry.get("name")) for entry in boxes if entry.get("id")}
     connections = document.get("connections") or {}
+    lost = 0
 
     # Which pins each node needs. Worked out from the wires rather than declared
     # anywhere in the file: n8n says what is joined, never what the sockets are.
@@ -173,6 +177,7 @@ def read(document: dict, cap: int) -> Tuple[dict, int]:
     links: List[dict] = []
 
     for source, kinds in connections.items():
+        source = by_id.get(source, source) if source not in known else source
         if source not in known or not isinstance(kinds, dict):
             continue
         for kind, slots in kinds.items():
@@ -186,7 +191,9 @@ def read(document: dict, cap: int) -> Tuple[dict, int]:
                     if not isinstance(wire, dict):
                         continue
                     target = str(wire.get("node"))
+                    target = by_id.get(target, target) if target not in known else target
                     if target not in known:
+                        lost += 1
                         continue
                     into = str(wire.get("type") or "main")
                     outputs.setdefault(source, [])
@@ -225,23 +232,128 @@ def read(document: dict, cap: int) -> Tuple[dict, int]:
         if entry.get("disabled"):
             node["badges"] = ["muted"]
         if inputs.get(name):
-            node["inputs"] = [{"id": pin, "label": pin} for pin in inputs[name]]
+            node["inputs"] = [{"id": pin, "label": _pin_label(pin)} for pin in inputs[name]]
         if outputs.get(name):
-            node["outputs"] = [{"id": pin, "label": pin} for pin in outputs[name]]
+            node["outputs"] = [{"id": pin, "label": _pin_label(pin)} for pin in outputs[name]]
         fields = _fields(entry.get("parameters"))
         if fields:
             node["fields"] = fields
         nodes.append(node)
 
+    drawn_notes = [_note(entry) for entry in notes]
+    _spread(nodes, drawn_notes)
+    if len(nodes) > 1 and not links:
+        # A workflow of boxes and no wires is not what n8n saves: somebody
+        # took them out, or pointed them at nodes that are not in the file.
+        # Said on the canvas, above the boxes, rather than left to look like
+        # a reader that failed.
+        top = min((n["y"] for n in nodes), default=0.0)
+        left = min((n["x"] for n in nodes), default=0.0)
+        said = ("This workflow's connections point at %d node(s) that are not in the file, "
+                "so none can be drawn." % lost) if lost else \
+            "This workflow keeps no connections: the file was saved without them."
+        drawn_notes.append({"text": said, "x": left, "y": top - 140, "width": 520, "height": 90})
     return (
         {
             "nodes": nodes,
             "links": links,
             "groups": [],
-            "notes": [_note(entry) for entry in notes],
+            "notes": drawn_notes,
         },
         dropped,
     )
+
+
+#: A box as the host draws it at the default size — wider than n8n's own
+#: square icon of a node, which its positions are spaced for.
+_BOX_WIDTH = 180.0
+_ROW = 19.0
+_TITLE = 25.0
+_MOST = 2.5
+
+
+def _pin_label(pin: str) -> str:
+    """`main` is nearly every pin n8n has and says nothing; printed, it ran
+    into the fields beside it. The AI pins — `ai_languageModel`, `ai_tool` —
+    say what plugs in there, and keep their words. A space, because an empty
+    label is drawn as the pin's id."""
+    return " " if pin.split(" ")[0] == "main" else pin
+
+
+def _spread(nodes: List[dict], notes: List[dict]) -> None:
+    """n8n's positions, pulled apart to fit the host's boxes.
+
+    n8n draws a node as a square about a hundred points wide and spaces its
+    chains for that; the host's box is 180 wide with its fields under the
+    title, so side by side they touched and the wire between them vanished.
+    Everything is scaled by what the closer neighbours need — nodes and the
+    sticky notes behind them alike, so a note still frames the nodes it was
+    drawn round.
+    """
+    if len(nodes) < 2:
+        return
+    beside, below, tall = [], [], []
+    for a in nodes:
+        rows = max(len(a.get("inputs", [])) + len(a.get("outputs", [])),
+                   len(a.get("fields", [])), 1)
+        tall.append(_TITLE + rows * _ROW + 12)
+        side = [abs(b["x"] - a["x"]) for b in nodes
+                if b is not a and abs(b["y"] - a["y"]) < 60 and b["x"] != a["x"]]
+        down = [abs(b["y"] - a["y"]) for b in nodes
+                if b is not a and abs(b["x"] - a["x"]) < 100 and b["y"] != a["y"]]
+        if side:
+            beside.append(min(side))
+        if down:
+            below.append(min(down))
+    kx = ky = 1.0
+    if beside:
+        beside.sort()
+        # The tighter quarter, not the middle: a chain drawn close together
+        # is exactly where the wires vanish.
+        kx = (_BOX_WIDTH + 60) / max(1.0, beside[len(beside) // 4])
+    if below:
+        below.sort()
+        tall.sort()
+        ky = (tall[len(tall) // 2] + 40) / max(1.0, below[len(below) // 4])
+    kx = min(max(kx, 1.0), _MOST)
+    ky = min(max(ky, 1.0), _MOST)
+    # What each note is drawn round, asked in n8n's own coordinates, where a
+    # node is a square of about a hundred points.
+    covers = []
+    for note in notes:
+        covers.append([n for n in nodes
+                       if note["x"] <= n["x"] + 50 <= note["x"] + note["width"]
+                       and note["y"] <= n["y"] + 50 <= note["y"] + note["height"]])
+    for node in nodes:
+        # About the centre of n8n's square, not its corner: the notes were
+        # drawn round the square, and a box of another size placed by its
+        # corner slid out from under the note that points at it.
+        rows = max(len(node.get("inputs", [])) + len(node.get("outputs", [])),
+                   len(node.get("fields", [])), 1)
+        width = node.get("width") or _BOX_WIDTH
+        height = _TITLE + rows * _ROW + 12
+        node["x"] = (node["x"] + 50) * kx - width / 2
+        node["y"] = (node["y"] + 50) * ky - height / 2
+    for note, inside in zip(notes, covers):
+        note["x"] *= kx
+        note["y"] *= ky
+        note["width"] *= kx
+        note["height"] *= ky
+        # Scaled, a note no longer fits the boxes, which are not n8n's size:
+        # it is grown to hold every node it held, with room kept round them.
+        for n in inside:
+            rows = max(len(n.get("inputs", [])) + len(n.get("outputs", [])),
+                       len(n.get("fields", [])), 1)
+            right = n["x"] + (n.get("width") or _BOX_WIDTH) + 20
+            bottom = n["y"] + _TITLE + rows * _ROW + 12 + 20
+            if n["x"] - 20 < note["x"]:
+                note["width"] += note["x"] - (n["x"] - 20)
+                note["x"] = n["x"] - 20
+            if n["y"] - 20 < note["y"]:
+                note["height"] += note["y"] - (n["y"] - 20)
+                note["y"] = n["y"] - 20
+            note["width"] = max(note["width"], right - note["x"])
+            note["height"] = max(note["height"], bottom - note["y"])
 
 
 def _note(entry: dict) -> dict:
