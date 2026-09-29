@@ -1,0 +1,1 @@
+libusb 1.0.30, https://libusb.info — LGPL-2.1-or-later. Loaded at run time through ctypes, never linked; native/build.sh rebuilds it from the unchanged source.

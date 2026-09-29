@@ -1,0 +1,23 @@
+{
+  "id": "org.xverb.mtp",
+  "name": "Android phones",
+  "version": "0.1.0",
+  "description": "An Android phone on a USB cable, in a panel like any other disk: browse, view, copy both ways, rename and delete, over MTP. macOS has had no way of its own to do this since Android File Transfer went. The phone appears in Drives and connections by itself; set its USB to File transfer and unlock it.",
+  "category": "Transports",
+  "author": "xverb",
+  "homepage": "https://github.com/xsm909/xverb-plugins",
+  "apiVersion": 1,
+  "runtime": "python",
+  "entry": "main.py",
+  "pythonMin": "3.12",
+  "icon": "memory",
+  "platforms": ["macos"],
+  "schemes": ["mtp"],
+  "commands": [
+    {
+      "id": "mtp.release",
+      "title": "Let go of connected phones",
+      "description": "Closes the session with every phone, so another program can reach it. The next thing that needs a phone opens it again."
+    }
+  ]
+}
