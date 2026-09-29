@@ -51,5 +51,13 @@
   "the phone is busy": "휴대전화가 사용 중임",
   "invalid parent": "잘못된 상위 폴더",
   "invalid parameter": "잘못된 매개변수",
-  "the object is too large": "개체가 너무 큼"
+  "the object is too large": "개체가 너무 큼",
+  "Internal storage": "내부 저장소",
+  "SD card": "SD 카드",
+  "Camera": "카메라",
+  "Pictures": "사진",
+  "Downloads": "다운로드",
+  "Documents": "문서",
+  "Music": "음악",
+  "Movies": "동영상"
 }

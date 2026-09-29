@@ -51,5 +51,13 @@
   "the phone is busy": "telefonen er opptatt",
   "invalid parent": "ugyldig overordnet mappe",
   "invalid parameter": "ugyldig parameter",
-  "the object is too large": "objektet er for stort"
+  "the object is too large": "objektet er for stort",
+  "Internal storage": "Intern lagring",
+  "SD card": "SD-kort",
+  "Camera": "Kamera",
+  "Pictures": "Bilder",
+  "Downloads": "Nedlastinger",
+  "Documents": "Dokumenter",
+  "Music": "Musikk",
+  "Movies": "Filmer"
 }

@@ -51,5 +51,13 @@
   "the phone is busy": "スマートフォンがビジー状態です",
   "invalid parent": "無効な親フォルダー",
   "invalid parameter": "無効なパラメーター",
-  "the object is too large": "オブジェクトが大きすぎます"
+  "the object is too large": "オブジェクトが大きすぎます",
+  "Internal storage": "内部ストレージ",
+  "SD card": "SDカード",
+  "Camera": "カメラ",
+  "Pictures": "ピクチャ",
+  "Downloads": "ダウンロード",
+  "Documents": "書類",
+  "Music": "ミュージック",
+  "Movies": "ムービー"
 }

@@ -105,10 +105,16 @@ class MtpError(Exception):
         super().__init__("%s: %s" % (what, self.reason or "response %#06x" % code))
 
 
+#: StorageType: memory built into the phone, and a card taken out of it.
+FIXED_STORAGE = (0x0001, 0x0003)
+REMOVABLE_STORAGE = (0x0002, 0x0004)
+
+
 class Storage:
     def __init__(self, storage_id: int, description: str, volume: str,
-                 capacity: int, free: int, access: int):
+                 capacity: int, free: int, access: int, kind: int = 0):
         self.id = storage_id
+        self.kind = kind
         self.description = description
         self.volume = volume
         self.capacity = capacity
@@ -429,10 +435,10 @@ class Device:
         found = []
         for storage_id in struct.unpack_from("<%dI" % count, data, 4):
             info, _ = self.call_in(GET_STORAGE_INFO, storage_id, what="Reading a storage")
-            _type, _fs, access, capacity, free, _objects = struct.unpack_from("<HHHQQI", info)
+            kind, _fs, access, capacity, free, _objects = struct.unpack_from("<HHHQQI", info)
             description, offset = _string(info, 26)
             volume, offset = _string(info, offset)
-            found.append(Storage(storage_id, description, volume, capacity, free, access))
+            found.append(Storage(storage_id, description, volume, capacity, free, access, kind))
         return found
 
     #: A folder with more new entries than this is described by property

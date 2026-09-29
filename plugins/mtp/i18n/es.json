@@ -51,5 +51,13 @@
   "the phone is busy": "el teléfono está ocupado",
   "invalid parent": "carpeta superior no válida",
   "invalid parameter": "parámetro no válido",
-  "the object is too large": "el objeto es demasiado grande"
+  "the object is too large": "el objeto es demasiado grande",
+  "Internal storage": "Almacenamiento interno",
+  "SD card": "Tarjeta SD",
+  "Camera": "Cámara",
+  "Pictures": "Imágenes",
+  "Downloads": "Descargas",
+  "Documents": "Documentos",
+  "Music": "Música",
+  "Movies": "Películas"
 }

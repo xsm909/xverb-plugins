@@ -51,5 +51,13 @@
   "the phone is busy": "手机忙",
   "invalid parent": "无效的父文件夹",
   "invalid parameter": "无效的参数",
-  "the object is too large": "对象过大"
+  "the object is too large": "对象过大",
+  "Internal storage": "内部存储",
+  "SD card": "SD 卡",
+  "Camera": "相机",
+  "Pictures": "图片",
+  "Downloads": "下载",
+  "Documents": "文稿",
+  "Music": "音乐",
+  "Movies": "影片"
 }

@@ -1,7 +1,7 @@
 {
   "id": "org.xverb.mtp",
   "name": "Android phones",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "An Android phone on a USB cable, in a panel like any other disk: browse, view, copy both ways, rename and delete, over MTP. macOS has had no way of its own to do this since Android File Transfer went. The phone appears in Drives and connections by itself; set its USB to File transfer and unlock it.",
   "category": "Transports",
   "author": "xverb",

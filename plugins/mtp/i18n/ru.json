@@ -51,5 +51,13 @@
   "the phone is busy": "телефон занят",
   "invalid parent": "неверная родительская папка",
   "invalid parameter": "неверный параметр",
-  "the object is too large": "объект слишком большой"
+  "the object is too large": "объект слишком большой",
+  "Internal storage": "Внутреннее хранилище",
+  "SD card": "SD-карта",
+  "Camera": "Камера",
+  "Pictures": "Изображения",
+  "Downloads": "Загрузки",
+  "Documents": "Документы",
+  "Music": "Музыка",
+  "Movies": "Фильмы"
 }

@@ -71,6 +71,17 @@ LOCKED = ("The phone shows no storage. Unlock it; if it asks whether to allow "
           "transfer.")
 NOT_CONNECTED = "No phone is connected. Plug it in and set USB to File transfer."
 
+#: The folders Android keeps at the top of a phone's memory, and what the
+#: submenu calls them, in the order a person looks for them.
+PLACES = (
+    ("DCIM", "Camera"),
+    ("Pictures", "Pictures"),
+    ("Download", "Downloads"),
+    ("Documents", "Documents"),
+    ("Music", "Music"),
+    ("Movies", "Movies"),
+)
+
 
 class _Phone:
     """One phone with a session, and what has been learnt about it."""
@@ -89,8 +100,10 @@ class _Phone:
         return self.device.model or self.device.manufacturer or "Android phone"
 
     def storage_named(self, name: str) -> Optional[ptp.Storage]:
+        # Any of its names: a URL kept from before the language changed, or
+        # from before storages were named here, still finds its storage.
         for storage in self.storages:
-            if _storage_label(storage, self.storages) == name:
+            if name in _storage_names(storage, self.storages):
                 return storage
         return None
 
@@ -126,12 +139,39 @@ class _Phone:
         self.folders.setdefault((found.storage, found.parent), {})[found.name] = found.handle
 
 
-def _storage_label(storage: ptp.Storage, all_storages: List[ptp.Storage]) -> str:
-    label = (storage.description or storage.volume or "Storage").replace("/", "-")
-    if sum(1 for s in all_storages
-           if (s.description or s.volume or "Storage").replace("/", "-") == label) > 1:
-        label = "%s %08X" % (label, storage.id)
-    return label
+def _storage_kind(storage: ptp.Storage) -> Optional[str]:
+    """The English name of what the storage is, when the phone says."""
+    if storage.kind in ptp.FIXED_STORAGE:
+        return "Internal storage"
+    if storage.kind in ptp.REMOVABLE_STORAGE:
+        return "SD card"
+    return None
+
+
+def _storage_label(storage: ptp.Storage, all_storages: List[ptp.Storage],
+                   translate: bool = True) -> str:
+    """The storage's name as a folder, in the user's language.
+
+    **Named by what it is, not by what the phone calls it.** The phone names
+    it in *its* language — a phone set to Russian says «Внутреннее хранилище»
+    to a Mac set to English. Only a storage of a kind MTP does not name keeps
+    the phone's words. Two of one kind are numbered.
+    """
+    kind = _storage_kind(storage)
+    if kind is None:
+        own = (storage.description or storage.volume or "Storage").replace("/", "-")
+        same = [s for s in all_storages if _storage_kind(s) is None
+                and (s.description or s.volume or "Storage").replace("/", "-") == own]
+        return own if len(same) < 2 else "%s %d" % (own, same.index(storage) + 1)
+    label = plugin.tr(kind) if translate else kind
+    same = [s for s in all_storages if _storage_kind(s) == kind]
+    return label if len(same) < 2 else "%s %d" % (label, same.index(storage) + 1)
+
+
+def _storage_names(storage: ptp.Storage, all_storages: List[ptp.Storage]) -> set:
+    return {_storage_label(storage, all_storages),
+            _storage_label(storage, all_storages, translate=False),
+            (storage.description or storage.volume or "").replace("/", "-")}
 
 
 def _gigabytes(count: int) -> str:
@@ -295,14 +335,51 @@ class MtpFileSystem(FileSystem):
                                       icon="removable"))
                 for storage in storages:
                     label = _storage_label(storage, storages)
-                    roots.append(Root(
-                        "mtp://%s/%s/" % (quote(serial), quote(label)),
+                    url = "mtp://%s/%s/" % (quote(serial), quote(label))
+                    root = Root(
+                        url,
                         phone.name if len(storages) == 1 else "%s: %s" % (phone.name, label),
                         plugin.tr("{storage}, {free} free of {size}", {
                             "storage": label, "free": _gigabytes(storage.free),
                             "size": _gigabytes(storage.capacity)}),
-                        icon="removable"))
+                        icon="removable")
+                    # An attribute, not an argument: an app from before the
+                    # submenu has an SDK that would refuse the argument.
+                    root.children = self._places(phone, storage, url)
+                    roots.append(root)
         return roots
+
+    def _places(self, phone: _Phone, storage: ptp.Storage, url: str) -> List[Root]:
+        """The folders every Android phone keeps, as the submenu of its
+        storage — what Documents and Downloads are under Home on a Mac.
+
+        Only those that are there, and only on the phone's own memory: a card
+        has whatever was put on it. The camera is DCIM/Camera where a phone has
+        one, because that is where the photographs are.
+        """
+        if _storage_kind(storage) != "Internal storage":
+            return []
+        try:
+            top = {row.name: row for row in phone.list(storage.id, 0) if row.is_folder}
+        except (ptp.MtpError, usb.UsbError):
+            return []
+        places = []
+        for folder, label in PLACES:
+            row = top.get(folder)
+            if row is None:
+                continue
+            path = folder
+            if folder == "DCIM":
+                try:
+                    inside = phone.child(storage.id, row.handle, "Camera")
+                except (ptp.MtpError, usb.UsbError):
+                    inside = None
+                if inside is not None and inside.is_folder:
+                    path = "DCIM/Camera"
+            place = Root(url + quote(path) + "/", plugin.tr(label), icon="folder")
+            place.volume = False
+            places.append(place)
+        return places
 
     def default_location(self) -> str:
         phones = self._open_all()
