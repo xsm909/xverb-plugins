@@ -1,0 +1,51 @@
+{
+  "id": "org.xverb.figma",
+  "name": "Figma",
+  "version": "0.1.0",
+  "description": "Figma designs and FigJam boards, opened without Figma. A .fig is the document rather than a picture of it, so the page is drawn from its own shapes and stays sharp however far in you go; beside it, the preview Figma saved, and a listing of the pages, the frames and their sizes, the fonts the design asks the machine for, what its text says and which components it is built from.",
+  "category": "Viewers",
+  "author": "xverb",
+  "homepage": "https://github.com/xsm909/xverb-plugins",
+  "apiVersion": 3,
+  "runtime": "python",
+  "entry": "main.py",
+  "pythonMin": "3.12",
+  "icon": "view",
+  "platforms": [
+    "windows",
+    "macos",
+    "linux"
+  ],
+  "viewers": [
+    {
+      "id": "figma.drawing",
+      "title": "Design",
+      "extensions": [
+        "fig",
+        "jam"
+      ],
+      "priority": 20,
+      "produces": "drawing",
+      "thumbnails": true
+    },
+    {
+      "id": "figma.preview",
+      "title": "Preview",
+      "extensions": [
+        "fig",
+        "jam"
+      ],
+      "priority": 15,
+      "produces": "picture"
+    },
+    {
+      "id": "figma.contents",
+      "title": "What is in the file",
+      "extensions": [
+        "fig",
+        "jam"
+      ],
+      "priority": 10
+    }
+  ]
+}

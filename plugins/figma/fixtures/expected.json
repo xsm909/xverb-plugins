@@ -1,0 +1,22 @@
+{
+  "counted": {
+    "sha256": "f7b7c3bdb79d8659f20692e18f55e6e753f3d77b959fe46a22f4c1e7e0d80498",
+    "size": 3000
+  },
+  "phrase": {
+    "sha256": "b67d4a6c25ae43db95a1113fb854eb30de44f6dcc4c735e35f0c321d668cdf57",
+    "size": 2700
+  },
+  "runs": {
+    "sha256": "c526c6222044dab5674de9c4ac7f4566ebb5e4d8bf9d8ea34c9cc8a7cc3c869c",
+    "size": 5000
+  },
+  "spread": {
+    "sha256": "5012474590b1f8d9a48d1c62c7e2e9a229be0e39db0b901648dd1910a9337918",
+    "size": 12000
+  },
+  "vocabulary": {
+    "sha256": "66c46bee353596ece4db8a997620a0725cd8561c8c01e62ee5b42d5d17629e5c",
+    "size": 16976
+  }
+}
