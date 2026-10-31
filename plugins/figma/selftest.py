@@ -34,12 +34,14 @@ and costs nothing.
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
 import os
 import struct
 import sys
 import time
+import xml.etree.ElementTree
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -47,6 +49,7 @@ import drawing  # noqa: E402
 import figfile  # noqa: E402
 import kiwi  # noqa: E402
 import report  # noqa: E402
+import svgout  # noqa: E402
 import zstd  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -248,6 +251,61 @@ def test_colours() -> None:
     check("a colour that is not one", drawing.colour_of(None, 1.0), None)
 
 
+def test_svg() -> None:
+    print("the SVG a page is written out as:")
+    # One triangle with a gradient across it, worked out here rather than read
+    # out of a file: verbs 0, 1, 1, 3 and six coordinates.
+    verbs = base64.b64encode(bytes([drawing.MOVE, drawing.LINE, drawing.LINE,
+                                    drawing.CLOSE])).decode("ascii")
+    points = base64.b64encode(
+        struct.pack("<6f", 0.0, 0.0, 10.0, 0.0, 10.0, 20.0)).decode("ascii")
+    page = {
+        "width": 10.0,
+        "height": 20.0,
+        "shapes": [{
+            "verbs": verbs,
+            "points": points,
+            "fill": None,
+            "stroke": "#ff000080",
+            "strokeWidth": 2.0,
+            "evenOdd": True,
+            "cap": "round",
+            "join": "miter",
+            "fillGradient": {
+                "kind": "linear",
+                "from": [0.0, 0.0],
+                "to": [10.0, 0.0],
+                "stops": [{"at": 0.0, "colour": "#000000ff"},
+                          {"at": 1.0, "colour": "#ffffff00"}],
+                "spread": "pad",
+            },
+        }],
+    }
+    written = svgout.of_drawing(page, background="#101010ff",
+                                title="A page & a half").decode("utf-8")
+    root = xml.etree.ElementTree.fromstring(written)
+    check("it is XML, and it is an svg",
+          root.tag, "{http://www.w3.org/2000/svg}svg")
+    check("the title is escaped",
+          root.find("{http://www.w3.org/2000/svg}title").text,
+          "A page & a half")
+    paths = root.findall("{http://www.w3.org/2000/svg}path")
+    check("one path", len(paths), 1)
+    check("the path is the triangle", paths[0].get("d"), "M0 0L10 0L10 20Z")
+    check("an odd winding rule travels", paths[0].get("fill-rule"), "evenodd")
+    check("a stroke keeps its colour", paths[0].get("stroke"), "#ff0000")
+    check("and its alpha, in its own attribute",
+          paths[0].get("stroke-opacity"), "0.502")
+    check("the fill points at the gradient", paths[0].get("fill"), "url(#f0)")
+    gradient = root.find(".//{http://www.w3.org/2000/svg}linearGradient")
+    check("which is in the drawing's own coordinates",
+          gradient.get("gradientUnits"), "userSpaceOnUse")
+    check("with both its stops",
+          len(gradient.findall("{http://www.w3.org/2000/svg}stop")), 2)
+    check("the background is a rectangle of the whole page",
+          root.find("{http://www.w3.org/2000/svg}rect").get("width"), "10")
+
+
 # -- real files ----------------------------------------------------------
 
 def test_files(folder: str) -> None:
@@ -288,6 +346,15 @@ def test_files(folder: str) -> None:
                  drawn["height"] if drawn else 0,
                  read - started, time.time() - read,
                  written.count("\n")))
+        for page in pages:
+            one = drawing.of_page(document, page)
+            try:
+                xml.etree.ElementTree.fromstring(
+                    svgout.of_drawing(one, title=page.get("name")))
+            except Exception as failure:  # noqa: BLE001
+                print("  FAIL %s, page %s, as SVG: %s"
+                      % (os.path.basename(path), page.get("name"), failure))
+                FAILURES.append("%s as SVG" % os.path.basename(path))
         if drawn and drawn["shapes"]:
             for shape in drawn["shapes"]:
                 if shape["fill"] is None and shape["stroke"] is None \
@@ -305,6 +372,7 @@ def main() -> int:
     test_path()
     test_matrices()
     test_colours()
+    test_svg()
     if len(sys.argv) > 1:
         test_files(sys.argv[1])
     print()

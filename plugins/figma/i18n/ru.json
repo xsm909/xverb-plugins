@@ -4,20 +4,16 @@
   "Preview": "Превью",
   "What is in the file": "Что в файле",
   "About this design": "О макете",
-  "Figma designs and FigJam boards, opened without Figma. A .fig is the document rather than a picture of it, so the page is drawn from its own shapes and stays sharp however far in you go; beside it, the preview Figma saved, and a listing of the pages, the frames and their sizes, the fonts the design asks the machine for, what its text says and which components it is built from.": "Макеты Figma и доски FigJam, открытые без Figma. .fig — это сам документ, а не картинка с него, поэтому страница рисуется её собственными фигурами и остаётся чёткой на любом увеличении; рядом — превью, которое сохранила Figma, и список страниц, фреймов с их размерами, шрифтов, которые макет попросит у машины, текста и компонентов, из которых он собран.",
-
   "The file could not be read: {error}": "Не удалось прочитать файл: {error}",
   "The file is empty.": "Файл пуст.",
   "This Figma file could not be read: {error}": "Не удалось прочитать этот файл Figma: {error}",
   "This Figma file could not be read.": "Не удалось прочитать этот файл Figma.",
   "This file carries no picture of itself. Shift+F3 draws the design from its shapes.": "В этом файле нет сохранённой картинки. Shift+F3 нарисует макет по его фигурам.",
-
   "{count} text layer(s)": "текстовых слоёв: {count}",
   "{count} picture(s)": "картинок: {count}",
   "page {number} of {total}: {name}": "страница {number} из {total}: {name}",
   "{things} not drawn — the preview Figma saved is one Shift+F3 away": "{things} — не нарисованы; превью, сохранённое Figma, в одном Shift+F3 отсюда",
   "the first {count} shapes of a longer page": "первые {count} фигур страницы, которая длиннее",
-
   "Name": "Имя",
   "Kind": "Вид",
   "Figma design": "Макет Figma",
@@ -38,11 +34,14 @@
   "Pictures": "Картинки",
   "Saved": "Сохранён",
   "Format": "Формат",
-
   "{what}, saved out of Figma on {date}. {size} on disk.": "{what}, выгружен из Figma {date}. На диске {size}.",
   "{what}. {size} on disk.": "{what}. На диске {size}.",
   "{count} more": "и ещё {count}",
   "{count} layer(s)": "слоёв: {count}",
   "Named by the file and not carried in it — a machine without one of these shows the design in something else.": "Файл называет их, но не несёт в себе: на машине без такого шрифта макет покажется другим.",
-  "Inside the file, named by the hash of their own contents, which is how the same picture used twice is stored once.": "Внутри файла, названы хешем собственного содержимого — поэтому одна и та же картинка, вставленная дважды, хранится один раз."
+  "Inside the file, named by the hash of their own contents, which is how the same picture used twice is stored once.": "Внутри файла, названы хешем собственного содержимого — поэтому одна и та же картинка, вставленная дважды, хранится один раз.",
+  "Figma pages": "Страницы Figma",
+  "There is no Figma file in {url}": "В {url} нет файла Figma",
+  "{name} is not a page of this file": "{name} — не страница этого файла",
+  "Figma designs and FigJam boards, opened without Figma. A .fig is the document rather than a picture of it, so the page is drawn from its own shapes and stays sharp however far in you go; beside it, the preview Figma saved, and a listing of the pages, the frames and their sizes, the fonts the design asks the machine for, what its text says and which components it is built from. Enter the file like a folder and each page is an SVG of its own, to walk with the cursor or copy out.": "Макеты Figma и доски FigJam, открытые без Figma. .fig — это сам документ, а не картинка с него, поэтому страница рисуется её собственными фигурами и остаётся чёткой на любом увеличении; рядом — превью, которое сохранила Figma, и список страниц, фреймов с их размерами, шрифтов, которые макет попросит у машины, текста и компонентов, из которых он собран. Войди в файл как в папку — каждая страница там отдельный SVG: ходи по ним курсором или копируй наружу."
 }

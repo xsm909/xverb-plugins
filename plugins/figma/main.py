@@ -50,18 +50,24 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from xverb import (  # noqa: E402
     Cancelled,
+    DIRECTORY,
+    Entry,
+    FileSystem,
     Plugin,
+    RpcError,
     error,
     fact,
     fact_group,
     facts,
     image,
     markdown,
+    query_of,
 )
 
 import drawing  # noqa: E402
 import figfile  # noqa: E402
 import report  # noqa: E402
+import svgout  # noqa: E402
 
 plugin = Plugin("org.xverb.figma", "Figma")
 
@@ -305,6 +311,131 @@ def about(url: str) -> dict:
             [fact("%d" % (i + 1), page.get("name") or "?")
              for i, page in enumerate(pages[:12])]))
     return facts(groups, picture=document.thumbnail, mime_type="image/png")
+
+
+
+# -- the file as a folder of pages ---------------------------------------
+
+#: What a page is called in the panel. The number keeps the pages in the
+#: order the tabs are in whatever the panel is sorted by, and the extension
+#: is the truth about the bytes: a page really is an SVG here.
+def _page_name(index: int, width: int, title: str, taken: set) -> str:
+    plain = " ".join((title or "").split()) or plugin.tr("Page")
+    for bad in '/\\:*?"<>|':
+        plain = plain.replace(bad, "-")
+    plain = plain.strip(". ") or plugin.tr("Page")
+    name = "%0*d · %s.svg" % (width, index, plain[:80])
+    while name.lower() in taken:
+        name = "%0*d · %s (%d).svg" % (width, index, plain[:72], len(taken))
+    taken.add(name.lower())
+    return name
+
+
+def _background_of(page: dict) -> str | None:
+    if not page.get("backgroundEnabled", True):
+        return None
+    return drawing.colour_of(page.get("backgroundColor"),
+                             page.get("backgroundOpacity", 1.0))
+
+
+#: The pages of the last file entered, written out once. Entering a folder
+#: asks for its listing again on every refresh, and drawing a board of two
+#: thousand layers four times a second is not a listing anybody wants.
+_PAGES: dict = {}
+
+
+def _pages_of(file_url: str) -> list[tuple[str, bytes]]:
+    stamp = _stamp(file_url)
+    if stamp is not None and _PAGES.get("stamp") == stamp:
+        return _PAGES["pages"]
+
+    document, refusal = _load(file_url)
+    if refusal is not None:
+        raise RpcError(refusal.get("message")
+                       or plugin.tr("This Figma file could not be read."))
+
+    pages = []
+    taken: set = set()
+    width = len(str(max(1, len(document.pages))))
+    for index, page in enumerate(document.pages, 1):
+        drawn = drawing.of_page(document, page)
+        pages.append((
+            _page_name(index, width, page.get("name"), taken),
+            svgout.of_drawing(drawn, background=_background_of(page),
+                              title=page.get("name")),
+        ))
+    if stamp is not None:
+        _PAGES["stamp"] = stamp
+        _PAGES["pages"] = pages
+    return pages
+
+
+def _container_of(url: str) -> tuple[str, str]:
+    """`figma:///<page>?from=file:///…fig` as the file and the page in it."""
+    from_url = query_of(url).get("from") or ""
+    if not from_url:
+        raise RpcError(plugin.tr("There is no Figma file in {url}",
+                                 {"url": url}))
+    path = urllib.parse.unquote(urllib.parse.urlparse(url).path or "")
+    return from_url, path.strip("/")
+
+
+def _modified_of(file_url: str):
+    """When the file was last written, in the seconds an Entry wants.
+
+    The host answers a stat in milliseconds and the SDK multiplies an entry's
+    own time by a thousand on the way back out, so handing one straight to the
+    other dates every page to the year 58000.
+    """
+    found = (plugin.stat(file_url) or {}).get("modified")
+    return None if found is None else found / 1000.0
+
+
+class PagesFileSystem(FileSystem):
+    """A `.fig` entered as a folder: one SVG per page.
+
+    **Why the pages are files rather than a chooser inside the viewer.** A
+    viewer answers with content and hears nothing back — a button or a tab
+    drawn in one is dead — so the place in this application where you choose
+    among several of something is the panel, and the panel is a file system.
+    Entering the design puts its pages under the cursor, F3 draws the one you
+    are on, and in full screen the strip walks them with Left and Right. The
+    bytes are a real SVG, so a page copies out of the panel into anything.
+    """
+
+    scheme = "figma"
+    writable = False
+    icon = "view"
+
+    def list(self, url: str) -> list:
+        file_url, inner = _container_of(url)
+        if inner:
+            # A page has nothing inside it; the panel asked anyway.
+            return []
+        modified = _modified_of(file_url)
+        return [Entry(name, size=len(data), modified=modified)
+                for name, data in _pages_of(file_url)]
+
+    def stat(self, url: str):
+        file_url, inner = _container_of(url)
+        if not inner:
+            return Entry("", kind=DIRECTORY)
+        modified = _modified_of(file_url)
+        for name, data in _pages_of(file_url):
+            if name == inner:
+                return Entry(name, size=len(data), modified=modified)
+        return None
+
+    def read(self, url: str, offset: int, length: int) -> bytes:
+        file_url, inner = _container_of(url)
+        for name, data in _pages_of(file_url):
+            if name == inner:
+                return data[offset:offset + length]
+        raise RpcError(plugin.tr("{name} is not a page of this file",
+                                 {"name": inner}))
+
+
+plugin.add_filesystem(PagesFileSystem())
 
 
 plugin.run()

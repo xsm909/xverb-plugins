@@ -19,6 +19,29 @@ The preview is the film strip's picture too, so a folder of designs is walked
 like a folder of photographs, and the information panel says what the file is
 without opening it.
 
+## The pages
+
+**Enter the file and its pages are the folder.** Pressing Enter on a `.fig`
+steps into it the way it steps into an archive, and each page is an `.svg`
+named after itself, numbered so the order is the order of the tabs in Figma:
+
+    AppIcons.fig  →  1 · xDBExplorer.svg
+                     2 · Internal Only Canvas.svg
+                     3 · xProphecy.svg
+                     4 · xTorrent.svg
+
+F3 draws the page under the cursor, full screen the strip along the bottom
+walks the pages with Left and Right, and F5 copies one out as an SVG anything
+can open — it is written from the same shapes the design view draws, so the
+two never disagree.
+
+That is where the choice of page is, rather than inside the viewer, because a
+viewer in this application answers with content and hears nothing back: a
+button or a tab drawn in one is dead. The panel is where you choose among
+several of something, and the panel is a file system.
+
+F3 on the `.fig` itself still draws its first page with anything on it.
+
 ## What is not drawn, and why
 
 **Text.** A `.fig` names the fonts and does not carry them, and it stores no
